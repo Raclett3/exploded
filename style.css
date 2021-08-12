@@ -1,0 +1,14 @@
+.stroke {
+    stroke-width: 1px;
+    stroke: white;
+    fill: none;
+}
+
+.fill {
+    stroke: none;
+    fill: white;
+}
+
+body {
+    background-color: black;
+}
