@@ -1,18 +1,17 @@
 use yew::prelude::*;
 
-const SIZE: isize = 100;
-
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum CellType {
     Tile,
     Bomb,
 }
 
-#[derive(Clone, Properties)]
+#[derive(Clone, Properties, PartialEq)]
 pub struct Props {
     pub cell_type: CellType,
-    pub x: isize,
-    pub y: isize,
+    pub x: f64,
+    pub y: f64,
+    pub size: f64,
 }
 
 pub struct Cell {
@@ -31,21 +30,32 @@ impl Component for Cell {
         false
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        false
+    fn change(&mut self, props: Self::Properties) -> ShouldRender {
+        if self.props == props {
+            return false;
+        }
+        self.props = props;
+        true
     }
 
     fn view(&self) -> Html {
-        let Props { cell_type, x, y } = self.props;
+        let Props {
+            cell_type,
+            x,
+            y,
+            size,
+        } = self.props;
+        let x = x as f64 * size;
+        let y = y as f64 * size;
         match cell_type {
             CellType::Bomb => {
                 html! {
-                    <circle cx={x + SIZE / 2} cy={y + SIZE / 2} r={SIZE / 2} class="fill" />
+                    <circle cx={x + size / 2.} cy={y + size / 2.} r={size / 2.} class="fill" />
                 }
             }
             CellType::Tile => {
                 html! {
-                    <rect x={x} y={y} width={SIZE} height={SIZE} class="stroke" />
+                    <rect x={x} y={y} width={size} height={size} class="stroke" />
                 }
             }
         }

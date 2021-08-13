@@ -5,3 +5,4 @@ edition = "2018"
 
 [dependencies]
 yew = "0.17"
+web-sys = "0.3"

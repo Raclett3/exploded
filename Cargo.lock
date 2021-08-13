@@ -79,6 +79,7 @@ dependencies = [
 name = "exploded"
 version = "0.1.0"
 dependencies = [
+ "web-sys",
  "yew",
 ]
 

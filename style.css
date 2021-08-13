@@ -11,6 +11,15 @@
 
 body {
     background-color: black;
+    margin: 0px;
+}
+
+.app {
+    border: 1px solid white;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .app {
