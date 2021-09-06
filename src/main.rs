@@ -1,7 +1,5 @@
-mod app;
-mod board;
-mod cell;
+mod components;
 
 fn main() {
-    yew::start_app::<app::App>();
+    yew::start_app::<components::app::App>();
 }

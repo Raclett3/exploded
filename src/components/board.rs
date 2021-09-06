@@ -1,4 +1,4 @@
-use crate::cell::{Cell, CellType::*};
+use super::cell::{Cell, CellType::*};
 use yew::prelude::*;
 
 #[derive(Clone, Properties, PartialEq)]

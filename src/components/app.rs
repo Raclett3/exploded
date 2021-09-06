@@ -1,4 +1,4 @@
-use crate::board::Board;
+use super::board::Board;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
