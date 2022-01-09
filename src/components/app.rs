@@ -43,6 +43,7 @@ impl Component for App {
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
             Msg::Resize(cell_size) => {
+                #[allow(clippy::float_cmp)]
                 let should_render = self.cell_size != cell_size;
                 self.cell_size = cell_size;
                 should_render
