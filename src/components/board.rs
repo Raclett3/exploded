@@ -6,34 +6,30 @@ pub struct Props {
     pub cell_size: f64,
 }
 
-pub struct Board {
-    props: Props,
-}
+pub struct Board {}
 
 impl Component for Board {
     type Message = ();
     type Properties = Props;
 
-    fn create(props: Self::Properties, _link: ComponentLink<Self>) -> Self {
-        Self { props }
+    fn create(_ctx: &Context<Self>) -> Self {
+        Self {}
     }
 
-    fn update(&mut self, _msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, _ctx: &Context<Self>, _msg: Self::Message) -> bool {
         false
     }
 
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        if props == self.props {
-            return false;
-        }
-        self.props = props;
+    fn changed(&mut self, _ctx: &Context<Self>) -> bool {
         true
     }
 
-    fn view(&self) -> Html {
-        let cell_size = self.props.cell_size;
+    fn view(&self, ctx: &Context<Self>) -> Html {
+        let cell_size = ctx.props().cell_size;
+        let width = (8. * cell_size).to_string();
+        let height = (9. * cell_size).to_string();
         html! {
-            <svg width={8. * cell_size} height={9. * cell_size}>
+            <svg width={width} height={height}>
                 <Cell x={0.} y={0.} size={cell_size} cell_type={Tile} />
                 <Cell x={1.} y={0.} size={cell_size} cell_type={Bomb} />
                 <Cell x={0.} y={1.} size={cell_size} cell_type={Bomb} />

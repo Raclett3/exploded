@@ -14,49 +14,32 @@ pub struct Props {
     pub size: f64,
 }
 
-pub struct Cell {
-    props: Props,
-}
-
-impl Component for Cell {
-    type Message = ();
-    type Properties = Props;
-
-    fn create(props: Self::Properties, _link: ComponentLink<Self>) -> Self {
-        Self { props }
-    }
-
-    fn update(&mut self, _msg: Self::Message) -> ShouldRender {
-        false
-    }
-
-    fn change(&mut self, props: Self::Properties) -> ShouldRender {
-        if self.props == props {
-            return false;
-        }
-        self.props = props;
-        true
-    }
-
-    fn view(&self) -> Html {
-        let Props {
-            cell_type,
-            x,
-            y,
-            size,
-        } = self.props;
-        let x = x as f64 * size;
-        let y = y as f64 * size;
-        match cell_type {
-            CellType::Bomb => {
-                html! {
-                    <circle cx={x + size / 2.} cy={y + size / 2.} r={size / 2.} class="fill" />
-                }
+#[function_component(Cell)]
+pub fn cell(props: &Props) -> Html {
+    let Props {
+        cell_type,
+        x,
+        y,
+        size,
+    } = props.clone();
+    let x = x as f64 * size;
+    let y = y as f64 * size;
+    match cell_type {
+        CellType::Bomb => {
+            let cx = (x + size / 2.).to_string();
+            let cy = (y + size / 2.).to_string();
+            let r = (size / 2.).to_string();
+            html! {
+                <circle cx={cx} cy={cy} r={r} class="fill" />
             }
-            CellType::Tile => {
-                html! {
-                    <rect x={x} y={y} width={size} height={size} class="stroke" />
-                }
+        }
+        CellType::Tile => {
+            let x = x.to_string();
+            let y = y.to_string();
+            let width = size.to_string();
+            let height = width.clone();
+            html! {
+                <rect x={x} y={y} width={width} height={height} class="stroke" />
             }
         }
     }

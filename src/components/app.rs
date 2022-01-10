@@ -18,7 +18,6 @@ fn fit_with_aspect_ratio(
 }
 
 pub struct App {
-    link: ComponentLink<Self>,
     board: NodeRef,
     cell_size: f64,
 }
@@ -32,15 +31,14 @@ impl Component for App {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            link,
             board: NodeRef::default(),
             cell_size: 100.,
         }
     }
 
-    fn update(&mut self, msg: Self::Message) -> ShouldRender {
+    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Resize(cell_size) => {
                 #[allow(clippy::float_cmp)]
@@ -55,11 +53,11 @@ impl Component for App {
         }
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
+    fn changed(&mut self, _ctx: &Context<Self>) -> bool {
         false
     }
 
-    fn rendered(&mut self, first_render: bool) {
+    fn rendered(&mut self, ctx: &Context<Self>, first_render: bool) {
         let window = web_sys::window().unwrap();
         let width = window.inner_width().unwrap().as_f64().unwrap();
         let height = window.inner_height().unwrap().as_f64().unwrap();
@@ -67,7 +65,7 @@ impl Component for App {
             fit_with_aspect_ratio(width - 20., height - 20., 8., 9.);
         let cell_size = resized_width as f64 / 8.;
 
-        let resize_callback = self.link.callback(Msg::Resize);
+        let resize_callback = ctx.link().callback(Msg::Resize);
         resize_callback.emit(cell_size);
 
         let board = self.board.cast::<HtmlElement>().unwrap();
@@ -78,7 +76,7 @@ impl Component for App {
             .unwrap();
 
         if first_render {
-            let click_callback = self.link.callback(Msg::Click);
+            let click_callback = ctx.link().callback(Msg::Click);
             let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
                 let x = ((event.client_x() as f64 - left) / cell_size)
                     .max(0.)
@@ -95,9 +93,9 @@ impl Component for App {
         }
     }
 
-    fn view(&self) -> Html {
+    fn view(&self, _ctx: &Context<Self>) -> Html {
         html! {
-            <div class="app" ref=self.board.clone()>
+            <div class="app" ref={self.board.clone()}>
                 <Board cell_size={self.cell_size} />
             </div>
         }
