@@ -55,6 +55,20 @@ impl Game {
             }
         }
     }
+
+    pub fn apply_gravity(&mut self) {
+        for x in 0..self.width {
+            let mut blank_cells_below = 0;
+
+            for y in (0..self.height).rev() {
+                if self.board[x][y].is_some() {
+                    self.board[x].swap(y, y + blank_cells_below);
+                } else {
+                    blank_cells_below += 1;
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -71,7 +85,7 @@ mod test {
     }
 
     #[test]
-    fn test_game() {
+    fn test_remove() {
         let mut game = from_board(
             3,
             6,
@@ -84,6 +98,26 @@ mod test {
         assert_eq!(game.remove(1, 3), 1);
         assert_eq!(game.remove(1, 4), 8);
         assert_eq!(game.board, vec![vec![None; 6]; 3]);
+    }
+
+    #[test]
+    fn test_apply_gravity() {
+        let mut game = from_board(
+            3,
+            4,
+            vec![
+                vec![Some(Tile), None, None, Some(Bomb)],
+                vec![None, Some(Tile), Some(Bomb), None],
+                vec![None, Some(Tile), None, Some(Bomb)],
+            ],
+        );
+
+        game.apply_gravity();
+
+        assert_eq!(
+            game.board,
+            vec![vec![None, None, Some(Tile), Some(Bomb)]; 3]
+        )
     }
 
     #[test]
