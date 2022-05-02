@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 fn adjacent_cells(
     x: usize,
     y: usize,
@@ -23,8 +25,20 @@ pub enum CellType {
     Bomb,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Cell {
+    id: usize,
+    cell_type: CellType,
+}
+
+impl Cell {
+    fn new(id: usize, cell_type: CellType) -> Self {
+        Cell { id, cell_type }
+    }
+}
+
 pub struct Game<const WIDTH: usize, const HEIGHT: usize> {
-    board: [[Option<CellType>; HEIGHT]; WIDTH],
+    board: [[Option<Cell>; HEIGHT]; WIDTH],
 }
 
 impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
@@ -34,36 +48,49 @@ impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
         }
     }
 
-    pub fn remove(&mut self, x: usize, y: usize) -> usize {
+    pub fn remove(&mut self, x: usize, y: usize) -> Vec<usize> {
         let cell = self
             .board
             .get_mut(x)
             .and_then(|x| x.get_mut(y))
             .and_then(|x| x.take());
-        match cell {
-            None => 0,
-            Some(CellType::Tile) => 1,
-            Some(CellType::Bomb) => {
-                adjacent_cells(x, y, WIDTH, HEIGHT)
-                    .map(|(x, y)| self.remove(x, y))
-                    .sum::<usize>()
-                    + 1
+
+        if let Some(Cell { id, cell_type }) = cell {
+            match cell_type {
+                CellType::Tile => vec![id],
+                CellType::Bomb => {
+                    let mut ids = vec![id];
+                    for (x, y) in adjacent_cells(x, y, WIDTH, HEIGHT) {
+                        ids.append(&mut self.remove(x, y));
+                    }
+                    ids
+                }
             }
+        } else {
+            vec![]
         }
     }
 
-    pub fn apply_gravity(&mut self) {
+    pub fn apply_gravity(&mut self) -> BTreeMap<usize, usize> {
+        let mut fall_distance = BTreeMap::new();
+
         for x in 0..WIDTH {
             let mut blank_cells_below = 0;
 
             for y in (0..HEIGHT).rev() {
-                if self.board[x][y].is_some() {
+                if let Some(Cell { id, .. }) = self.board[x][y] {
+                    if blank_cells_below > 0 {
+                        fall_distance.insert(id, blank_cells_below);
+                    }
+
                     self.board[x].swap(y, y + blank_cells_below);
                 } else {
                     blank_cells_below += 1;
                 }
             }
         }
+
+        fall_distance
     }
 }
 
@@ -73,34 +100,62 @@ mod test {
     use CellType::*;
 
     fn from_board<const WIDTH: usize, const HEIGHT: usize>(
-        board: [[Option<CellType>; HEIGHT]; WIDTH],
+        board: [[Option<Cell>; HEIGHT]; WIDTH],
     ) -> Game<WIDTH, HEIGHT> {
         Game { board }
     }
 
+    fn cell(id: usize, cell_type: CellType) -> Option<Cell> {
+        Some(Cell { id, cell_type })
+    }
+
+    trait Sorted {
+        fn sorted(&self) -> Self;
+    }
+
+    impl<T: Ord + Clone> Sorted for Vec<T> {
+        fn sorted(&self) -> Vec<T> {
+            let mut vec = self.to_vec();
+            vec.sort();
+            vec
+        }
+    }
+
     #[test]
     fn test_remove() {
-        let mut game = from_board::<3, 6>([
-            [None, None, None, Some(Tile), Some(Tile), Some(Tile)],
-            [None, None, None, Some(Tile), Some(Bomb), Some(Tile)],
-            [None, None, None, Some(Tile), Some(Tile), Some(Tile)],
+        let mut game = from_board::<3, 4>([
+            [None, cell(6, Tile), cell(3, Tile), cell(0, Tile)],
+            [None, cell(7, Tile), cell(4, Bomb), cell(1, Tile)],
+            [None, cell(8, Tile), cell(5, Tile), cell(2, Tile)],
         ]);
-        assert_eq!(game.remove(1, 3), 1);
-        assert_eq!(game.remove(1, 4), 8);
-        assert_eq!(game.board, [[None; 6]; 3]);
+        assert_eq!(game.remove(0, 3).sorted(), vec![0]);
+        assert_eq!(game.remove(1, 2).sorted(), (1..=8).collect::<Vec<_>>());
+        assert_eq!(game.board, [[None; 4]; 3]);
     }
 
     #[test]
     fn test_apply_gravity() {
         let mut game = from_board::<3, 4>([
-            [Some(Tile), None, None, Some(Bomb)],
-            [None, Some(Tile), Some(Bomb), None],
-            [None, Some(Tile), None, Some(Bomb)],
+            [cell(0, Tile), None, None, cell(3, Bomb)],
+            [None, cell(1, Tile), cell(4, Bomb), None],
+            [None, cell(2, Tile), None, cell(5, Bomb)],
         ]);
 
-        game.apply_gravity();
+        let mut map = BTreeMap::<usize, usize>::new();
+        map.insert(0, 2);
+        map.insert(1, 1);
+        map.insert(2, 1);
+        map.insert(4, 1);
+        assert_eq!(game.apply_gravity(), map);
 
-        assert_eq!(game.board, [[None, None, Some(Tile), Some(Bomb)]; 3])
+        assert_eq!(
+            game.board,
+            [
+                [None, None, cell(0, Tile), cell(3, Bomb)],
+                [None, None, cell(1, Tile), cell(4, Bomb)],
+                [None, None, cell(2, Tile), cell(5, Bomb)],
+            ]
+        );
     }
 
     #[test]
