@@ -23,18 +23,14 @@ pub enum CellType {
     Bomb,
 }
 
-pub struct Game {
-    board: Vec<Vec<Option<CellType>>>,
-    width: usize,
-    height: usize,
+pub struct Game<const WIDTH: usize, const HEIGHT: usize> {
+    board: [[Option<CellType>; HEIGHT]; WIDTH],
 }
 
-impl Game {
-    pub fn new(width: usize, height: usize) -> Self {
+impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
+    pub fn new() -> Self {
         Game {
-            board: vec![vec![None; height]; width],
-            width,
-            height,
+            board: [[None; HEIGHT]; WIDTH],
         }
     }
 
@@ -48,7 +44,7 @@ impl Game {
             None => 0,
             Some(CellType::Tile) => 1,
             Some(CellType::Bomb) => {
-                adjacent_cells(x, y, self.width, self.height)
+                adjacent_cells(x, y, WIDTH, HEIGHT)
                     .map(|(x, y)| self.remove(x, y))
                     .sum::<usize>()
                     + 1
@@ -57,10 +53,10 @@ impl Game {
     }
 
     pub fn apply_gravity(&mut self) {
-        for x in 0..self.width {
+        for x in 0..WIDTH {
             let mut blank_cells_below = 0;
 
-            for y in (0..self.height).rev() {
+            for y in (0..HEIGHT).rev() {
                 if self.board[x][y].is_some() {
                     self.board[x].swap(y, y + blank_cells_below);
                 } else {
@@ -76,48 +72,35 @@ mod test {
     use super::*;
     use CellType::*;
 
-    fn from_board(width: usize, height: usize, board: Vec<Vec<Option<CellType>>>) -> Game {
-        Game {
-            board,
-            width,
-            height,
-        }
+    fn from_board<const WIDTH: usize, const HEIGHT: usize>(
+        board: [[Option<CellType>; HEIGHT]; WIDTH],
+    ) -> Game<WIDTH, HEIGHT> {
+        Game { board }
     }
 
     #[test]
     fn test_remove() {
-        let mut game = from_board(
-            3,
-            6,
-            vec![
-                vec![None, None, None, Some(Tile), Some(Tile), Some(Tile)],
-                vec![None, None, None, Some(Tile), Some(Bomb), Some(Tile)],
-                vec![None, None, None, Some(Tile), Some(Tile), Some(Tile)],
-            ],
-        );
+        let mut game = from_board::<3, 6>([
+            [None, None, None, Some(Tile), Some(Tile), Some(Tile)],
+            [None, None, None, Some(Tile), Some(Bomb), Some(Tile)],
+            [None, None, None, Some(Tile), Some(Tile), Some(Tile)],
+        ]);
         assert_eq!(game.remove(1, 3), 1);
         assert_eq!(game.remove(1, 4), 8);
-        assert_eq!(game.board, vec![vec![None; 6]; 3]);
+        assert_eq!(game.board, [[None; 6]; 3]);
     }
 
     #[test]
     fn test_apply_gravity() {
-        let mut game = from_board(
-            3,
-            4,
-            vec![
-                vec![Some(Tile), None, None, Some(Bomb)],
-                vec![None, Some(Tile), Some(Bomb), None],
-                vec![None, Some(Tile), None, Some(Bomb)],
-            ],
-        );
+        let mut game = from_board::<3, 4>([
+            [Some(Tile), None, None, Some(Bomb)],
+            [None, Some(Tile), Some(Bomb), None],
+            [None, Some(Tile), None, Some(Bomb)],
+        ]);
 
         game.apply_gravity();
 
-        assert_eq!(
-            game.board,
-            vec![vec![None, None, Some(Tile), Some(Bomb)]; 3]
-        )
+        assert_eq!(game.board, [[None, None, Some(Tile), Some(Bomb)]; 3])
     }
 
     #[test]
