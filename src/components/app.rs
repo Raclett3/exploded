@@ -1,8 +1,13 @@
 use super::board::Board;
+use crate::game::{CellType, Game};
+use rand::prelude::*;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use web_sys::HtmlElement;
 use yew::prelude::*;
+
+const WIDTH: usize = 8;
+const HEIGHT: usize = 9;
 
 fn fit_with_aspect_ratio(
     width: f64,
@@ -17,9 +22,44 @@ fn fit_with_aspect_ratio(
     }
 }
 
+struct BombGenerator {
+    shuffled: Vec<(usize, usize)>,
+    rng: StdRng,
+}
+
+impl BombGenerator {
+    fn new() -> Self {
+        let random = js_sys::Math::random();
+        let rng = StdRng::seed_from_u64(u64::from_be_bytes(random.to_be_bytes()));
+        let mut generator = BombGenerator {
+            shuffled: Vec::new(),
+            rng,
+        };
+        generator.shuffle();
+        generator
+    }
+
+    fn shuffle(&mut self) {
+        let mut shuffled = (0..WIDTH)
+            .flat_map(|first| (first + 1..WIDTH).map(move |second| (first, second)))
+            .collect::<Vec<_>>();
+        shuffled.shuffle(&mut self.rng);
+        self.shuffled = shuffled;
+    }
+
+    fn next(&mut self) -> (usize, usize) {
+        self.shuffled.pop().unwrap_or_else(|| {
+            self.shuffle();
+            self.next()
+        })
+    }
+}
+
 pub struct App {
     board: NodeRef,
     cell_size: f64,
+    game: Game<WIDTH, HEIGHT>,
+    generator: BombGenerator,
 }
 
 pub enum Msg {
@@ -32,9 +72,19 @@ impl Component for App {
     type Properties = ();
 
     fn create(_ctx: &Context<Self>) -> Self {
+        let mut game = Game::<WIDTH, HEIGHT>::new();
+        let mut generator = BombGenerator::new();
+        let bombs = generator.next();
+        let mut row = [CellType::Tile; WIDTH];
+        row[bombs.0] = CellType::Bomb;
+        row[bombs.1] = CellType::Bomb;
+        game.feed(&row);
+
         Self {
             board: NodeRef::default(),
             cell_size: 100.,
+            game,
+            generator,
         }
     }
 
@@ -47,8 +97,19 @@ impl Component for App {
                 should_render
             }
             Msg::Click((x, y)) => {
-                web_sys::console::log_2(&JsValue::from_f64(x as f64), &JsValue::from_f64(y as f64));
-                false
+                let ids = self.game.remove(x, y);
+
+                if !ids.is_empty() {
+                    let bombs = self.generator.next();
+                    let mut row = [CellType::Tile; WIDTH];
+                    row[bombs.0] = CellType::Bomb;
+                    row[bombs.1] = CellType::Bomb;
+                    self.game.apply_gravity();
+                    self.game.feed(&row);
+                    true
+                } else {
+                    false
+                }
             }
         }
     }
@@ -96,7 +157,7 @@ impl Component for App {
     fn view(&self, _ctx: &Context<Self>) -> Html {
         html! {
             <div class="app" ref={self.board.clone()}>
-                <Board cell_size={self.cell_size} />
+                <Board<WIDTH, HEIGHT> board={self.game.board} cell_size={self.cell_size} />
             </div>
         }
     }

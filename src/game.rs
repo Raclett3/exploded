@@ -35,10 +35,14 @@ impl Cell {
     fn new(id: usize, cell_type: CellType) -> Self {
         Cell { id, cell_type }
     }
+
+    pub fn is_bomb(&self) -> bool {
+        self.cell_type == CellType::Bomb
+    }
 }
 
 pub struct Game<const WIDTH: usize, const HEIGHT: usize> {
-    board: [[Option<Cell>; HEIGHT]; WIDTH],
+    pub board: [[Option<Cell>; HEIGHT]; WIDTH],
     generated_cells: usize,
 }
 

@@ -15,10 +15,9 @@ body {
 }
 
 .app {
-    border: 1px solid white;
     position: absolute;
 }
 
-.app {
+svg {
     border: 1px solid white;
 }
