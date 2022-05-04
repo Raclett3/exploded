@@ -41,6 +41,7 @@ impl Cell {
     }
 }
 
+#[derive(Clone)]
 pub struct Game<const WIDTH: usize, const HEIGHT: usize> {
     pub board: [[Option<Cell>; HEIGHT]; WIDTH],
     generated_cells: usize,
