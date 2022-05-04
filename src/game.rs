@@ -39,12 +39,14 @@ impl Cell {
 
 pub struct Game<const WIDTH: usize, const HEIGHT: usize> {
     board: [[Option<Cell>; HEIGHT]; WIDTH],
+    generated_cells: usize,
 }
 
 impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
     pub fn new() -> Self {
         Game {
             board: [[None; HEIGHT]; WIDTH],
+            generated_cells: 0,
         }
     }
 
@@ -92,6 +94,21 @@ impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
 
         fall_distance
     }
+
+    pub fn feed(&mut self, row: &[CellType; WIDTH]) -> [Cell; WIDTH] {
+        let row = row.map(|cell| {
+            let cell = Cell::new(self.generated_cells, cell);
+            self.generated_cells += 1;
+            cell
+        });
+
+        for (cell, column) in row.iter().cloned().zip(self.board.iter_mut()) {
+            column.rotate_left(1);
+            *column.last_mut().unwrap() = Some(cell);
+        }
+
+        row
+    }
 }
 
 #[cfg(test)]
@@ -102,7 +119,10 @@ mod test {
     fn from_board<const WIDTH: usize, const HEIGHT: usize>(
         board: [[Option<Cell>; HEIGHT]; WIDTH],
     ) -> Game<WIDTH, HEIGHT> {
-        Game { board }
+        Game {
+            board,
+            generated_cells: 0,
+        }
     }
 
     fn cell(id: usize, cell_type: CellType) -> Option<Cell> {
@@ -154,6 +174,37 @@ mod test {
                 [None, None, cell(0, Tile), cell(3, Bomb)],
                 [None, None, cell(1, Tile), cell(4, Bomb)],
                 [None, None, cell(2, Tile), cell(5, Bomb)],
+            ]
+        );
+    }
+
+    #[test]
+    fn test_feed() {
+        let mut game = from_board::<4, 3>([
+            [None, cell(0, Tile), cell(0, Bomb)],
+            [None, None, cell(0, Tile)],
+            [None, None, cell(0, Tile)],
+            [None, None, cell(0, Tile)],
+        ]);
+
+        let row = [Tile, Bomb, Tile, Bomb];
+        assert_eq!(
+            game.feed(&row).as_slice(),
+            row.iter()
+                .cloned()
+                .enumerate()
+                .map(|(i, x)| Cell::new(i, x))
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+
+        assert_eq!(
+            game.board,
+            [
+                [cell(0, Tile), cell(0, Bomb), cell(0, Tile)],
+                [None, cell(0, Tile), cell(1, Bomb)],
+                [None, cell(0, Tile), cell(2, Tile)],
+                [None, cell(0, Tile), cell(3, Bomb)],
             ]
         );
     }
