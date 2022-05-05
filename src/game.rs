@@ -27,8 +27,8 @@ pub enum CellType {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Cell {
-    id: usize,
-    cell_type: CellType,
+    pub id: usize,
+    pub cell_type: CellType,
 }
 
 impl Cell {
