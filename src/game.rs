@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 
 fn adjacent_cells(
     x: usize,
@@ -55,27 +55,29 @@ impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
         }
     }
 
-    pub fn remove(&mut self, x: usize, y: usize) -> Vec<usize> {
-        let cell = self
-            .board
-            .get_mut(x)
-            .and_then(|x| x.get_mut(y))
-            .and_then(|x| x.take());
+    pub fn remove(&mut self, x: usize, y: usize) -> Vec<(usize, usize, usize)> {
+        let mut queue = VecDeque::new();
+        queue.push_back((x, y, 0));
+        let mut dists = Vec::new();
 
-        if let Some(Cell { id, cell_type }) = cell {
-            match cell_type {
-                CellType::Tile => vec![id],
-                CellType::Bomb => {
-                    let mut ids = vec![id];
+        while let Some((x, y, dist)) = queue.pop_front() {
+            let cell = self
+                .board
+                .get_mut(x)
+                .and_then(|x| x.get_mut(y))
+                .and_then(|x| x.take());
+
+            if let Some(Cell { cell_type, .. }) = cell {
+                dists.push((dist, x, y));
+                if cell_type == CellType::Bomb {
                     for (x, y) in adjacent_cells(x, y, WIDTH, HEIGHT) {
-                        ids.append(&mut self.remove(x, y));
+                        queue.push_back((x, y, dist + 1));
                     }
-                    ids
                 }
             }
-        } else {
-            vec![]
         }
+
+        dists
     }
 
     pub fn apply_gravity(&mut self) -> BTreeMap<usize, usize> {
@@ -153,8 +155,18 @@ mod test {
             [None, cell(7, Tile), cell(4, Bomb), cell(1, Tile)],
             [None, cell(8, Tile), cell(5, Tile), cell(2, Tile)],
         ]);
-        assert_eq!(game.remove(0, 3).sorted(), vec![0]);
-        assert_eq!(game.remove(1, 2).sorted(), (1..=8).collect::<Vec<_>>());
+
+        assert_eq!(game.remove(0, 3), vec![(0, 0, 3)]);
+        assert_eq!(game.remove(1, 2).sorted(), vec![
+            (0, 1, 2),
+            (1, 0, 1),
+            (1, 0, 2),
+            (1, 1, 1),
+            (1, 1, 3),
+            (1, 2, 1),
+            (1, 2, 2),
+            (1, 2, 3),
+        ]);
         assert_eq!(game.board, [[None; 4]; 3]);
     }
 
