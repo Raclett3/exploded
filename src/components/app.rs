@@ -60,19 +60,21 @@ impl BombGenerator {
     }
 }
 
-struct FloatAnimator<T> {
+struct FloatAnimator<T, A: Animation<T>> {
     begin_at: f64,
     elapsed_frames: usize,
-    animator: Animator<T>,
+    animator: A,
+    phantom: std::marker::PhantomData<T>,
 }
 
-impl<T> FloatAnimator<T> {
-    fn new(animations: Vec<Box<dyn Animation<T>>>) -> Self {
+impl<T, A: Animation<T>> FloatAnimator<T, A> {
+    fn new(animator: A) -> Self {
         let now = js_sys::Date::now();
         FloatAnimator {
             begin_at: now,
             elapsed_frames: 0,
-            animator: Animator::new(animations),
+            animator,
+            phantom: std::marker::PhantomData,
         }
     }
 
@@ -87,7 +89,7 @@ impl<T> FloatAnimator<T> {
         }
     }
 
-    fn frame(&self) -> Vec<T> {
+    fn frame(&self) -> T {
         self.animator.current_frame()
     }
 
@@ -101,23 +103,37 @@ pub struct FloatingCell {
     pub x: f64,
     pub y: f64,
     pub cell_type: ComponentCellType,
+    pub opacity: f64,
+}
+
+fn interpolation((from, to): (f64, f64), position: f64) -> f64 {
+    (from * (1. - position)) + (to * position)
 }
 
 struct CellAnimator {
     x: f64,
-    y_from: f64,
-    y_to: f64,
+    y: (f64, f64),
+    opacity: (f64, f64),
+    delay: usize,
     duration: usize,
     elapsed: usize,
     cell_type: ComponentCellType,
 }
 
 impl CellAnimator {
-    fn new(x: f64, y_from: f64, y_to: f64, duration: usize, cell_type: ComponentCellType) -> Self {
+    fn new(
+        x: f64,
+        y: (f64, f64),
+        opacity: (f64, f64),
+        delay: usize,
+        duration: usize,
+        cell_type: ComponentCellType,
+    ) -> Self {
         CellAnimator {
             x,
-            y_from,
-            y_to,
+            y,
+            opacity,
+            delay,
             duration,
             cell_type,
             elapsed: 0,
@@ -131,17 +147,18 @@ impl Animation<FloatingCell> for CellAnimator {
     }
 
     fn current_frame(&self) -> FloatingCell {
-        let relative_time = self.elapsed.min(self.duration) as f64 / self.duration as f64;
-        let y = (self.y_from * (1. - relative_time)) + (self.y_to * relative_time);
+        let relative_time = self.elapsed.saturating_sub(self.delay).min(self.duration) as f64
+            / self.duration as f64;
         FloatingCell {
             x: self.x,
-            y,
+            y: interpolation(self.y, relative_time),
             cell_type: self.cell_type,
+            opacity: interpolation(self.opacity, relative_time),
         }
     }
 
     fn is_over(&self) -> bool {
-        self.duration <= self.elapsed
+        self.duration + self.delay <= self.elapsed
     }
 }
 
@@ -149,7 +166,9 @@ impl Animation<FloatingCell> for CellAnimator {
 struct ReducibleGame {
     game: Game<WIDTH, HEIGHT>,
     generator: BombGenerator,
-    animator: Option<Rc<RefCell<FloatAnimator<FloatingCell>>>>,
+    #[allow(clippy::type_complexity)]
+    animator:
+        Option<Rc<RefCell<FloatAnimator<Vec<FloatingCell>, AnimationChain<Vec<FloatingCell>>>>>>,
 }
 
 pub enum GameAction {
@@ -184,10 +203,53 @@ impl Reducible for ReducibleGame {
 
         match action {
             GameAction::Remove(x, y) => {
-                let ids = self_cloned.game.remove(x, y);
-                if !ids.is_empty() {
+                let dists = self_cloned.game.remove(x, y);
+                if !dists.is_empty() {
+                    let remove_animation = self_cloned
+                        .game
+                        .board
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(x, col)| {
+                            col.iter().enumerate().flat_map(move |(y, cell)| {
+                                cell.map(|cell| {
+                                    let Cell { cell_type, .. } = cell;
+                                    let cell_type = match cell_type {
+                                        CellType::Bomb => ComponentCellType::Bomb,
+                                        CellType::Tile => ComponentCellType::Tile,
+                                    };
+                                    Box::new(CellAnimator::new(
+                                        x as f64,
+                                        (y as f64, y as f64),
+                                        (1., 1.),
+                                        0,
+                                        1,
+                                        cell_type,
+                                    ))
+                                        as Box<dyn Animation<FloatingCell>>
+                                })
+                            })
+                        })
+                        .chain(
+                            dists.iter().map(|&(dist, x, y, cell_type)| {
+                                let cell_type = match cell_type {
+                                    CellType::Bomb => ComponentCellType::Bomb,
+                                    CellType::Tile => ComponentCellType::Tile,
+                                };
+                                Box::new(CellAnimator::new(
+                                    x as f64,
+                                    (y as f64, y as f64),
+                                    (1., 0.),
+                                    dist * 3,
+                                    10,
+                                    cell_type,
+                                ))
+                                    as Box<dyn Animation<FloatingCell>>
+                            })
+                        )
+                        .collect();
                     let dists = self_cloned.game.apply_gravity();
-                    let cells = self_cloned
+                    let cells_animation = self_cloned
                         .game
                         .board
                         .iter()
@@ -204,9 +266,10 @@ impl Reducible for ReducibleGame {
                                     let dist = dists.get(&id).cloned().unwrap_or(0);
                                     Box::new(CellAnimator::new(
                                         x as f64,
-                                        (y - dist) as f64,
-                                        y as f64,
-                                        dist * 6 + 1,
+                                        ((y - dist) as f64, y as f64),
+                                        (1., 1.),
+                                        0,
+                                        dist * 10 + 1,
                                         cell_type,
                                     ))
                                         as Box<dyn Animation<FloatingCell>>
@@ -214,8 +277,41 @@ impl Reducible for ReducibleGame {
                             })
                         })
                         .collect();
-                    self_cloned.animator = Some(Rc::new(RefCell::new(FloatAnimator::new(cells))));
                     self_cloned.feed();
+                    let feed_animation = self_cloned
+                        .game
+                        .board
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(x, col)| {
+                            col.iter().enumerate().flat_map(move |(y, cell)| {
+                                cell.map(|cell| {
+                                    let Cell { cell_type, .. } = cell;
+                                    let cell_type = match cell_type {
+                                        CellType::Bomb => ComponentCellType::Bomb,
+                                        CellType::Tile => ComponentCellType::Tile,
+                                    };
+                                    Box::new(CellAnimator::new(
+                                        x as f64,
+                                        ((y + 1) as f64, y as f64),
+                                        (1., 1.),
+                                        0,
+                                        10,
+                                        cell_type,
+                                    ))
+                                        as Box<dyn Animation<FloatingCell>>
+                                })
+                            })
+                        })
+                        .collect();
+
+                    let animation = AnimationChain::new(vec![
+                        Box::new(Animator::new(remove_animation)),
+                        Box::new(Animator::new(cells_animation)),
+                        Box::new(Animator::new(feed_animation)),
+                    ]);
+                    self_cloned.animator =
+                        Some(Rc::new(RefCell::new(FloatAnimator::new(animation))));
                 }
             }
             GameAction::Feed => {

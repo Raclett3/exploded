@@ -23,9 +23,9 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
 
     let cells = if let Some(floating_cells) = floating_cells {
         let cells = floating_cells.iter().map(|cell| {
-            let &FloatingCell { x, y, cell_type } = cell;
+            let &FloatingCell { x, y, cell_type, opacity } = cell;
             html! {
-                <Cell x={x} y={y} size={cell_size} cell_type={cell_type} />
+                <Cell x={x} y={y} opacity={opacity} size={cell_size} cell_type={cell_type} />
             }
         });
         html! {
@@ -38,7 +38,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
                     let (x, y) = (x as f64, y as f64);
                     let cell_type = if cell.is_bomb() { Bomb } else { Tile };
                     html! {
-                        <Cell x={x} y={y} size={cell_size} cell_type={cell_type} />
+                        <Cell x={x} y={y} opacity={1.0} size={cell_size} cell_type={cell_type} />
                     }
                 })
             })

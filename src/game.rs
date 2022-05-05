@@ -19,7 +19,7 @@ fn adjacent_cells(
         .filter(move |&(x, y)| x < width && y < height)
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CellType {
     Tile,
     Bomb,
@@ -55,7 +55,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
         }
     }
 
-    pub fn remove(&mut self, x: usize, y: usize) -> Vec<(usize, usize, usize)> {
+    pub fn remove(&mut self, x: usize, y: usize) -> Vec<(usize, usize, usize, CellType)> {
         let mut queue = VecDeque::new();
         queue.push_back((x, y, 0));
         let mut dists = Vec::new();
@@ -68,7 +68,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
                 .and_then(|x| x.take());
 
             if let Some(Cell { cell_type, .. }) = cell {
-                dists.push((dist, x, y));
+                dists.push((dist, x, y, cell_type));
                 if cell_type == CellType::Bomb {
                     for (x, y) in adjacent_cells(x, y, WIDTH, HEIGHT) {
                         queue.push_back((x, y, dist + 1));
@@ -156,16 +156,16 @@ mod test {
             [None, cell(8, Tile), cell(5, Tile), cell(2, Tile)],
         ]);
 
-        assert_eq!(game.remove(0, 3), vec![(0, 0, 3)]);
+        assert_eq!(game.remove(0, 3), vec![(0, 0, 3, Tile)]);
         assert_eq!(game.remove(1, 2).sorted(), vec![
-            (0, 1, 2),
-            (1, 0, 1),
-            (1, 0, 2),
-            (1, 1, 1),
-            (1, 1, 3),
-            (1, 2, 1),
-            (1, 2, 2),
-            (1, 2, 3),
+            (0, 1, 2, Bomb),
+            (1, 0, 1, Tile),
+            (1, 0, 2, Tile),
+            (1, 1, 1, Tile),
+            (1, 1, 3, Tile),
+            (1, 2, 1, Tile),
+            (1, 2, 2, Tile),
+            (1, 2, 3, Tile),
         ]);
         assert_eq!(game.board, [[None; 4]; 3]);
     }

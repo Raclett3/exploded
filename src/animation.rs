@@ -49,6 +49,42 @@ impl<T> Animation<Vec<T>> for Animator<T> {
     }
 }
 
+pub struct AnimationChain<T> {
+    animations: Vec<Box<dyn Animation<T>>>,
+}
+
+impl<T> AnimationChain<T> {
+    pub fn new(animations: Vec<Box<dyn Animation<T>>>) -> Self {
+        AnimationChain {
+            animations: animations.into_iter().rev().collect(),
+        }
+    }
+}
+
+impl<T> Animation<T> for AnimationChain<T> {
+    fn advance_frames(&mut self, frames: usize) {
+        for _ in 0..frames {
+            if let Some(anim) = self.animations.last_mut() {
+                anim.advance_frames(1);
+            } else {
+                break;
+            }
+
+            while self.animations.len() >= 2 && self.animations.last().unwrap().is_over() {
+                self.animations.pop();
+            }
+        }
+    }
+
+    fn current_frame(&self) -> T {
+        self.animations.last().unwrap().current_frame()
+    }
+
+    fn is_over(&self) -> bool {
+        self.animations.last().unwrap().is_over()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
