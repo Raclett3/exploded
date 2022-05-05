@@ -1,5 +1,6 @@
-mod components;
 #[allow(dead_code)]
+mod animation;
+mod components;
 mod game;
 
 fn main() {
