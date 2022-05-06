@@ -1,6 +1,6 @@
 use super::app::FloatingCell;
 use super::cell::{Cell, CellType::*};
-use crate::game::Cell as GameCell;
+use crate::board::Cell as GameCell;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]

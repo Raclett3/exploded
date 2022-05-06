@@ -1,7 +1,7 @@
 use super::board::Board;
 use super::cell::CellType as ComponentCellType;
 use crate::animation::*;
-use crate::game::{Cell, CellType, Game};
+use crate::board::{Cell, CellType, Board as GameBoard};
 use rand::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -126,7 +126,7 @@ impl Animation<FloatingCell> for CellAnimator {
 
 #[derive(Clone)]
 struct ReducibleGame {
-    game: Game<WIDTH, HEIGHT>,
+    board: GameBoard<WIDTH, HEIGHT>,
     generator: BombGenerator,
     score: usize,
     #[allow(clippy::type_complexity)]
@@ -143,7 +143,7 @@ pub enum GameAction {
 impl ReducibleGame {
     fn new() -> Self {
         ReducibleGame {
-            game: Game::new(),
+            board: GameBoard::new(),
             generator: BombGenerator::new(),
             score: 0,
             animator: None,
@@ -155,12 +155,12 @@ impl ReducibleGame {
         let mut row = [CellType::Tile; WIDTH];
         row[bombs.0] = CellType::Bomb;
         row[bombs.1] = CellType::Bomb;
-        self.game.feed(&row);
+        self.board.feed(&row);
     }
 
     fn is_over(&self) -> bool {
-        self.game
-            .board
+        self.board
+            .cells
             .iter()
             .any(|x| x.first().cloned().flatten().is_some())
     }
@@ -180,13 +180,13 @@ impl Reducible for ReducibleGame {
                     return Rc::new(game);
                 }
 
-                let dists = self_cloned.game.remove(x, y);
+                let dists = self_cloned.board.remove(x, y);
                 if !dists.is_empty() {
                     self_cloned.score += (dists.len() + 1) * dists.len() / 2;
 
                     let remove_animation = self_cloned
-                        .game
                         .board
+                        .cells
                         .iter()
                         .enumerate()
                         .flat_map(|(x, col)| {
@@ -224,10 +224,10 @@ impl Reducible for ReducibleGame {
                             )) as Box<dyn Animation<FloatingCell>>
                         }))
                         .collect();
-                    let dists = self_cloned.game.apply_gravity();
+                    let dists = self_cloned.board.apply_gravity();
                     let cells_animation = self_cloned
-                        .game
                         .board
+                        .cells
                         .iter()
                         .enumerate()
                         .flat_map(|(x, col)| {
@@ -255,8 +255,8 @@ impl Reducible for ReducibleGame {
                         .collect();
                     self_cloned.feed();
                     let feed_animation = self_cloned
-                        .game
                         .board
+                        .cells
                         .iter()
                         .enumerate()
                         .flat_map(|(x, col)| {
@@ -384,7 +384,7 @@ pub fn app() -> Html {
 
     html! {
         <div class="app" ref={board_ref}>
-            <Board<WIDTH, HEIGHT> board={game.game.board} floating_cells={floating_cells} score={game.score} is_game_over={game.is_over()} cell_size={*cell_size} />
+            <Board<WIDTH, HEIGHT> board={game.board.cells} floating_cells={floating_cells} score={game.score} is_game_over={game.is_over()} cell_size={*cell_size} />
         </div>
     }
 }

@@ -42,15 +42,15 @@ impl Cell {
 }
 
 #[derive(Clone)]
-pub struct Game<const WIDTH: usize, const HEIGHT: usize> {
-    pub board: [[Option<Cell>; HEIGHT]; WIDTH],
+pub struct Board<const WIDTH: usize, const HEIGHT: usize> {
+    pub cells: [[Option<Cell>; HEIGHT]; WIDTH],
     generated_cells: usize,
 }
 
-impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
+impl<const WIDTH: usize, const HEIGHT: usize> Board<WIDTH, HEIGHT> {
     pub fn new() -> Self {
-        Game {
-            board: [[None; HEIGHT]; WIDTH],
+        Board {
+            cells: [[None; HEIGHT]; WIDTH],
             generated_cells: 0,
         }
     }
@@ -62,7 +62,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
 
         while let Some((x, y, dist)) = queue.pop_front() {
             let cell = self
-                .board
+                .cells
                 .get_mut(x)
                 .and_then(|x| x.get_mut(y))
                 .and_then(|x| x.take());
@@ -87,12 +87,12 @@ impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
             let mut blank_cells_below = 0;
 
             for y in (0..HEIGHT).rev() {
-                if let Some(Cell { id, .. }) = self.board[x][y] {
+                if let Some(Cell { id, .. }) = self.cells[x][y] {
                     if blank_cells_below > 0 {
                         fall_distance.insert(id, blank_cells_below);
                     }
 
-                    self.board[x].swap(y, y + blank_cells_below);
+                    self.cells[x].swap(y, y + blank_cells_below);
                 } else {
                     blank_cells_below += 1;
                 }
@@ -109,7 +109,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Game<WIDTH, HEIGHT> {
             cell
         });
 
-        for (cell, column) in row.iter().cloned().zip(self.board.iter_mut()) {
+        for (cell, column) in row.iter().cloned().zip(self.cells.iter_mut()) {
             column.rotate_left(1);
             *column.last_mut().unwrap() = Some(cell);
         }
@@ -123,11 +123,11 @@ mod test {
     use super::*;
     use CellType::*;
 
-    fn from_board<const WIDTH: usize, const HEIGHT: usize>(
-        board: [[Option<Cell>; HEIGHT]; WIDTH],
-    ) -> Game<WIDTH, HEIGHT> {
-        Game {
-            board,
+    fn from_cells<const WIDTH: usize, const HEIGHT: usize>(
+        cells: [[Option<Cell>; HEIGHT]; WIDTH],
+    ) -> Board<WIDTH, HEIGHT> {
+        Board {
+            cells,
             generated_cells: 0,
         }
     }
@@ -150,14 +150,14 @@ mod test {
 
     #[test]
     fn test_remove() {
-        let mut game = from_board::<3, 4>([
+        let mut board = from_cells::<3, 4>([
             [None, cell(6, Tile), cell(3, Tile), cell(0, Tile)],
             [None, cell(7, Tile), cell(4, Bomb), cell(1, Tile)],
             [None, cell(8, Tile), cell(5, Tile), cell(2, Tile)],
         ]);
 
-        assert_eq!(game.remove(0, 3), vec![(0, 0, 3, Tile)]);
-        assert_eq!(game.remove(1, 2).sorted(), vec![
+        assert_eq!(board.remove(0, 3), vec![(0, 0, 3, Tile)]);
+        assert_eq!(board.remove(1, 2).sorted(), vec![
             (0, 1, 2, Bomb),
             (1, 0, 1, Tile),
             (1, 0, 2, Tile),
@@ -167,12 +167,12 @@ mod test {
             (1, 2, 2, Tile),
             (1, 2, 3, Tile),
         ]);
-        assert_eq!(game.board, [[None; 4]; 3]);
+        assert_eq!(board.cells, [[None; 4]; 3]);
     }
 
     #[test]
     fn test_apply_gravity() {
-        let mut game = from_board::<3, 4>([
+        let mut board = from_cells::<3, 4>([
             [cell(0, Tile), None, None, cell(3, Bomb)],
             [None, cell(1, Tile), cell(4, Bomb), None],
             [None, cell(2, Tile), None, cell(5, Bomb)],
@@ -183,10 +183,10 @@ mod test {
         map.insert(1, 1);
         map.insert(2, 1);
         map.insert(4, 1);
-        assert_eq!(game.apply_gravity(), map);
+        assert_eq!(board.apply_gravity(), map);
 
         assert_eq!(
-            game.board,
+            board.cells,
             [
                 [None, None, cell(0, Tile), cell(3, Bomb)],
                 [None, None, cell(1, Tile), cell(4, Bomb)],
@@ -197,7 +197,7 @@ mod test {
 
     #[test]
     fn test_feed() {
-        let mut game = from_board::<4, 3>([
+        let mut board = from_cells::<4, 3>([
             [None, cell(0, Tile), cell(0, Bomb)],
             [None, None, cell(0, Tile)],
             [None, None, cell(0, Tile)],
@@ -206,7 +206,7 @@ mod test {
 
         let row = [Tile, Bomb, Tile, Bomb];
         assert_eq!(
-            game.feed(&row).as_slice(),
+            board.feed(&row).as_slice(),
             row.iter()
                 .cloned()
                 .enumerate()
@@ -216,7 +216,7 @@ mod test {
         );
 
         assert_eq!(
-            game.board,
+            board.cells,
             [
                 [cell(0, Tile), cell(0, Bomb), cell(0, Tile)],
                 [None, cell(0, Tile), cell(1, Bomb)],
