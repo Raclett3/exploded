@@ -1,0 +1,271 @@
+use crate::animation::*;
+use crate::board::{Board as GameBoard, Cell, CellType};
+use rand::prelude::*;
+use std::cell::RefCell;
+use std::rc::Rc;
+use yew::Reducible;
+
+pub const WIDTH: usize = 8;
+pub const HEIGHT: usize = 9;
+
+#[derive(Clone)]
+struct BombGenerator {
+    shuffled: Vec<(usize, usize)>,
+    rng: StdRng,
+}
+
+impl BombGenerator {
+    fn new() -> Self {
+        let random = js_sys::Math::random();
+        let rng = StdRng::seed_from_u64(u64::from_be_bytes(random.to_be_bytes()));
+        let mut generator = BombGenerator {
+            shuffled: Vec::new(),
+            rng,
+        };
+        generator.shuffle();
+        generator
+    }
+
+    fn shuffle(&mut self) {
+        let mut shuffled = (0..WIDTH)
+            .flat_map(|first| (first + 1..WIDTH).map(move |second| (first, second)))
+            .collect::<Vec<_>>();
+        shuffled.shuffle(&mut self.rng);
+        self.shuffled = shuffled;
+    }
+
+    fn next(&mut self) -> (usize, usize) {
+        self.shuffled.pop().unwrap_or_else(|| {
+            self.shuffle();
+            self.next()
+        })
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct FloatingCell {
+    pub x: f64,
+    pub y: f64,
+    pub cell_type: CellType,
+    pub opacity: f64,
+}
+
+fn interpolation((from, to): (f64, f64), position: f64) -> f64 {
+    (from * (1. - position)) + (to * position)
+}
+
+struct CellAnimator {
+    x: f64,
+    y: (f64, f64),
+    opacity: (f64, f64),
+    delay: usize,
+    duration: usize,
+    elapsed: usize,
+    cell_type: CellType,
+}
+
+impl CellAnimator {
+    fn new(
+        x: f64,
+        y: (f64, f64),
+        opacity: (f64, f64),
+        delay: usize,
+        duration: usize,
+        cell_type: CellType,
+    ) -> Self {
+        CellAnimator {
+            x,
+            y,
+            opacity,
+            delay,
+            duration,
+            cell_type,
+            elapsed: 0,
+        }
+    }
+}
+
+impl Animation<FloatingCell> for CellAnimator {
+    fn advance_frames(&mut self, frames: usize) {
+        self.elapsed += frames;
+    }
+
+    fn current_frame(&self) -> FloatingCell {
+        let relative_time = self.elapsed.saturating_sub(self.delay).min(self.duration) as f64
+            / self.duration as f64;
+        FloatingCell {
+            x: self.x,
+            y: interpolation(self.y, relative_time),
+            cell_type: self.cell_type,
+            opacity: interpolation(self.opacity, relative_time),
+        }
+    }
+
+    fn is_over(&self) -> bool {
+        self.duration + self.delay <= self.elapsed
+    }
+}
+
+#[derive(Clone)]
+pub struct Game {
+    pub board: GameBoard<WIDTH, HEIGHT>,
+    generator: BombGenerator,
+    pub score: usize,
+    #[allow(clippy::type_complexity)]
+    pub animator:
+        Option<Rc<RefCell<FloatAnimator<Vec<FloatingCell>, AnimationChain<Vec<FloatingCell>>>>>>,
+}
+
+pub enum GameAction {
+    Feed,
+    Remove(usize, usize),
+    Animate,
+}
+
+impl Game {
+    pub fn new() -> Self {
+        Game {
+            board: GameBoard::new(),
+            generator: BombGenerator::new(),
+            score: 0,
+            animator: None,
+        }
+    }
+
+    fn feed(&mut self) {
+        let bombs = self.generator.next();
+        let mut row = [CellType::Tile; WIDTH];
+        row[bombs.0] = CellType::Bomb;
+        row[bombs.1] = CellType::Bomb;
+        self.board.feed(&row);
+    }
+
+    pub fn is_over(&self) -> bool {
+        self.board
+            .cells
+            .iter()
+            .any(|x| x.first().cloned().flatten().is_some())
+    }
+}
+
+impl Reducible for Game {
+    type Action = GameAction;
+
+    fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
+        let mut self_cloned = (*self).clone();
+
+        match action {
+            GameAction::Remove(x, y) => {
+                if self_cloned.is_over() {
+                    let mut game = Game::new();
+                    game.feed();
+                    return Rc::new(game);
+                }
+
+                let dists = self_cloned.board.remove(x, y);
+                if !dists.is_empty() {
+                    self_cloned.score += (dists.len() + 1) * dists.len() / 2;
+
+                    let remove_animation = self_cloned
+                        .board
+                        .cells
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(x, col)| {
+                            col.iter().enumerate().flat_map(move |(y, cell)| {
+                                cell.map(|cell| {
+                                    let Cell { cell_type, .. } = cell;
+                                    Box::new(CellAnimator::new(
+                                        x as f64,
+                                        (y as f64, y as f64),
+                                        (1., 1.),
+                                        0,
+                                        1,
+                                        cell_type,
+                                    ))
+                                        as Box<dyn Animation<FloatingCell>>
+                                })
+                            })
+                        })
+                        .chain(dists.iter().map(|&(dist, x, y, cell_type)| {
+                            Box::new(CellAnimator::new(
+                                x as f64,
+                                (y as f64, y as f64),
+                                (1., 0.),
+                                dist * 3,
+                                10,
+                                cell_type,
+                            )) as Box<dyn Animation<FloatingCell>>
+                        }))
+                        .collect();
+                    let dists = self_cloned.board.apply_gravity();
+                    let cells_animation = self_cloned
+                        .board
+                        .cells
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(x, col)| {
+                            let dists = dists.clone();
+                            col.iter().enumerate().flat_map(move |(y, cell)| {
+                                cell.map(|cell| {
+                                    let Cell { id, cell_type } = cell;
+                                    let dist = dists.get(&id).cloned().unwrap_or(0);
+                                    Box::new(CellAnimator::new(
+                                        x as f64,
+                                        ((y - dist) as f64, y as f64),
+                                        (1., 1.),
+                                        0,
+                                        dist * 10 + 1,
+                                        cell_type,
+                                    ))
+                                        as Box<dyn Animation<FloatingCell>>
+                                })
+                            })
+                        })
+                        .collect();
+                    self_cloned.feed();
+                    let feed_animation = self_cloned
+                        .board
+                        .cells
+                        .iter()
+                        .enumerate()
+                        .flat_map(|(x, col)| {
+                            col.iter().enumerate().flat_map(move |(y, cell)| {
+                                cell.map(|cell| {
+                                    let Cell { cell_type, .. } = cell;
+                                    Box::new(CellAnimator::new(
+                                        x as f64,
+                                        ((y + 1) as f64, y as f64),
+                                        (1., 1.),
+                                        0,
+                                        10,
+                                        cell_type,
+                                    ))
+                                        as Box<dyn Animation<FloatingCell>>
+                                })
+                            })
+                        })
+                        .collect();
+
+                    let animation = AnimationChain::new(vec![
+                        Box::new(Animator::new(remove_animation)),
+                        Box::new(Animator::new(cells_animation)),
+                        Box::new(Animator::new(feed_animation)),
+                    ]);
+                    self_cloned.animator =
+                        Some(Rc::new(RefCell::new(FloatAnimator::new(animation))));
+                }
+            }
+            GameAction::Feed => {
+                self_cloned.feed();
+            }
+            GameAction::Animate => {
+                if let Some(animator) = &self.animator {
+                    animator.borrow_mut().animate();
+                }
+            }
+        }
+
+        self_cloned.into()
+    }
+}

@@ -1,6 +1,6 @@
-use super::app::FloatingCell;
 use super::cell::{Cell, CellType::*};
-use crate::board::Cell as GameCell;
+use crate::board::{Cell as GameCell, CellType};
+use crate::game::FloatingCell;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -29,7 +29,16 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
 
     let cells = if let Some(floating_cells) = floating_cells {
         let cells = floating_cells.iter().map(|cell| {
-            let &FloatingCell { x, y, cell_type, opacity } = cell;
+            let &FloatingCell {
+                x,
+                y,
+                cell_type,
+                opacity,
+            } = cell;
+            let cell_type = match cell_type {
+                CellType::Bomb => Bomb,
+                CellType::Tile => Tile,
+            };
             html! {
                 <Cell x={x} y={y} opacity={opacity} size={cell_size} cell_type={cell_type} />
             }
