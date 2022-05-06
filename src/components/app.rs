@@ -372,6 +372,7 @@ pub fn app() -> Html {
             game.dispatch(GameAction::Feed);
             let cloned_game = game.clone();
             let closure = Closure::wrap(Box::new(move |event: web_sys::MouseEvent| {
+                event.prevent_default();
                 let x = ((event.client_x() as f64 - left) / cell_size)
                     .max(0.)
                     .min(7.) as usize;
