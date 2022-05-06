@@ -28,3 +28,13 @@ svg {
     font-size: 5vh;
     font-family: "Consolas", "Monaco", monospace;
 }
+
+.text-center {
+    stroke: #000;
+    stroke-width: 1px;
+    fill: #FFF;
+    alignment-baseline: middle;
+    text-anchor: middle;
+    font-size: 10vh;
+    font-family: sans-serif;
+}

@@ -195,6 +195,13 @@ impl ReducibleGame {
         row[bombs.1] = CellType::Bomb;
         self.game.feed(&row);
     }
+
+    fn is_over(&self) -> bool {
+        self.game
+            .board
+            .iter()
+            .any(|x| x.first().cloned().flatten().is_some())
+    }
 }
 
 impl Reducible for ReducibleGame {
@@ -205,6 +212,12 @@ impl Reducible for ReducibleGame {
 
         match action {
             GameAction::Remove(x, y) => {
+                if self_cloned.is_over() {
+                    let mut game = ReducibleGame::new();
+                    game.feed();
+                    return Rc::new(game);
+                }
+
                 let dists = self_cloned.game.remove(x, y);
                 if !dists.is_empty() {
                     self_cloned.score += (dists.len() + 1) * dists.len() / 2;
@@ -408,7 +421,7 @@ pub fn app() -> Html {
 
     html! {
         <div class="app" ref={board_ref}>
-            <Board<WIDTH, HEIGHT> board={game.game.board} floating_cells={floating_cells} score={game.score} cell_size={*cell_size} />
+            <Board<WIDTH, HEIGHT> board={game.game.board} floating_cells={floating_cells} score={game.score} is_game_over={game.is_over()} cell_size={*cell_size} />
         </div>
     }
 }

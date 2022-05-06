@@ -9,6 +9,7 @@ pub struct Props<const WIDTH: usize, const HEIGHT: usize> {
     pub board: [[Option<GameCell>; HEIGHT]; WIDTH],
     pub floating_cells: Option<Vec<FloatingCell>>,
     pub score: usize,
+    pub is_game_over: bool,
 }
 
 #[function_component(Board)]
@@ -18,10 +19,13 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
         board,
         floating_cells,
         score,
+        is_game_over,
     } = props;
     let cell_size = *cell_size;
     let width = (WIDTH as f64 * cell_size).to_string();
     let height = (HEIGHT as f64 * cell_size).to_string();
+    let center_x = (WIDTH as f64 * cell_size / 2.).to_string();
+    let center_y = (HEIGHT as f64 * cell_size / 2.).to_string();
 
     let cells = if let Some(floating_cells) = floating_cells {
         let cells = floating_cells.iter().map(|cell| {
@@ -55,6 +59,9 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
         <svg width={width} height={height}>
             <text x="0" y="0" class="text">{format!("SCORE: {}", score)}</text>
             {cells}
+            if *is_game_over {
+                <text x={center_x} y={center_y} class="text-center" alignment-baseline="hanging">{"GAME OVER"}</text>
+            }
         </svg>
     }
 }
