@@ -60,44 +60,6 @@ impl BombGenerator {
     }
 }
 
-struct FloatAnimator<T, A: Animation<T>> {
-    begin_at: f64,
-    elapsed_frames: usize,
-    animator: A,
-    phantom: std::marker::PhantomData<T>,
-}
-
-impl<T, A: Animation<T>> FloatAnimator<T, A> {
-    fn new(animator: A) -> Self {
-        let now = js_sys::Date::now();
-        FloatAnimator {
-            begin_at: now,
-            elapsed_frames: 0,
-            animator,
-            phantom: std::marker::PhantomData,
-        }
-    }
-
-    fn animate(&mut self) {
-        let now = js_sys::Date::now();
-        let elapsed = now - self.begin_at;
-        let frames = (elapsed / 60.0).floor() as usize;
-        let frame_delta = frames - self.elapsed_frames;
-
-        if frame_delta > 0 {
-            self.animator.advance_frames(frame_delta);
-        }
-    }
-
-    fn frame(&self) -> T {
-        self.animator.current_frame()
-    }
-
-    fn is_over(&self) -> bool {
-        self.animator.is_over()
-    }
-}
-
 #[derive(Clone, PartialEq)]
 pub struct FloatingCell {
     pub x: f64,
