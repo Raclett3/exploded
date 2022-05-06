@@ -166,6 +166,7 @@ impl Animation<FloatingCell> for CellAnimator {
 struct ReducibleGame {
     game: Game<WIDTH, HEIGHT>,
     generator: BombGenerator,
+    score: usize,
     #[allow(clippy::type_complexity)]
     animator:
         Option<Rc<RefCell<FloatAnimator<Vec<FloatingCell>, AnimationChain<Vec<FloatingCell>>>>>>,
@@ -182,6 +183,7 @@ impl ReducibleGame {
         ReducibleGame {
             game: Game::new(),
             generator: BombGenerator::new(),
+            score: 0,
             animator: None,
         }
     }
@@ -205,6 +207,8 @@ impl Reducible for ReducibleGame {
             GameAction::Remove(x, y) => {
                 let dists = self_cloned.game.remove(x, y);
                 if !dists.is_empty() {
+                    self_cloned.score += (dists.len() + 1) * dists.len() / 2;
+
                     let remove_animation = self_cloned
                         .game
                         .board
@@ -230,23 +234,20 @@ impl Reducible for ReducibleGame {
                                 })
                             })
                         })
-                        .chain(
-                            dists.iter().map(|&(dist, x, y, cell_type)| {
-                                let cell_type = match cell_type {
-                                    CellType::Bomb => ComponentCellType::Bomb,
-                                    CellType::Tile => ComponentCellType::Tile,
-                                };
-                                Box::new(CellAnimator::new(
-                                    x as f64,
-                                    (y as f64, y as f64),
-                                    (1., 0.),
-                                    dist * 3,
-                                    10,
-                                    cell_type,
-                                ))
-                                    as Box<dyn Animation<FloatingCell>>
-                            })
-                        )
+                        .chain(dists.iter().map(|&(dist, x, y, cell_type)| {
+                            let cell_type = match cell_type {
+                                CellType::Bomb => ComponentCellType::Bomb,
+                                CellType::Tile => ComponentCellType::Tile,
+                            };
+                            Box::new(CellAnimator::new(
+                                x as f64,
+                                (y as f64, y as f64),
+                                (1., 0.),
+                                dist * 3,
+                                10,
+                                cell_type,
+                            )) as Box<dyn Animation<FloatingCell>>
+                        }))
                         .collect();
                     let dists = self_cloned.game.apply_gravity();
                     let cells_animation = self_cloned
@@ -407,7 +408,7 @@ pub fn app() -> Html {
 
     html! {
         <div class="app" ref={board_ref}>
-            <Board<WIDTH, HEIGHT> board={game.game.board} floating_cells={floating_cells} cell_size={*cell_size} />
+            <Board<WIDTH, HEIGHT> board={game.game.board} floating_cells={floating_cells} score={game.score} cell_size={*cell_size} />
         </div>
     }
 }

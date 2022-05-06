@@ -8,6 +8,7 @@ pub struct Props<const WIDTH: usize, const HEIGHT: usize> {
     pub cell_size: f64,
     pub board: [[Option<GameCell>; HEIGHT]; WIDTH],
     pub floating_cells: Option<Vec<FloatingCell>>,
+    pub score: usize,
 }
 
 #[function_component(Board)]
@@ -16,6 +17,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
         cell_size,
         board,
         floating_cells,
+        score,
     } = props;
     let cell_size = *cell_size;
     let width = (WIDTH as f64 * cell_size).to_string();
@@ -51,6 +53,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
 
     html! {
         <svg width={width} height={height}>
+            <text x="0" y="0" class="text">{format!("SCORE: {}", score)}</text>
             {cells}
         </svg>
     }

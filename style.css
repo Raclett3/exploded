@@ -21,3 +21,10 @@ body {
 svg {
     border: 1px solid white;
 }
+
+.text {
+    fill: #FFF;
+    alignment-baseline: hanging;
+    font-size: 5vh;
+    font-family: "Consolas", "Monaco", monospace;
+}
