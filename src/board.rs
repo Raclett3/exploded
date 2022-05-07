@@ -152,18 +152,18 @@ mod test {
             [None, cell(8, Tile), cell(5, Tile), cell(2, Tile)],
         ]);
 
-        assert_eq!(board.remove(0, 3), vec![(0, 0, 3, Tile)]);
+        assert_eq!(board.remove(0, 3), vec![(0, 0, 0, 3, Tile)]);
         assert_eq!(
             board.remove(1, 2).sorted(),
             vec![
-                (0, 1, 2, Bomb),
-                (1, 0, 1, Tile),
-                (1, 0, 2, Tile),
-                (1, 1, 1, Tile),
-                (1, 1, 3, Tile),
-                (1, 2, 1, Tile),
-                (1, 2, 2, Tile),
-                (1, 2, 3, Tile),
+                (1, 1, 1, 3, Tile),
+                (2, 1, 2, 3, Tile),
+                (3, 1, 0, 2, Tile),
+                (4, 0, 1, 2, Bomb),
+                (5, 1, 2, 2, Tile),
+                (6, 1, 0, 1, Tile),
+                (7, 1, 1, 1, Tile),
+                (8, 1, 2, 1, Tile),
             ]
         );
         assert_eq!(board.cells, [[None; 4]; 3]);
