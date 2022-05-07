@@ -25,7 +25,6 @@ svg {
 .text {
     fill: #FFF;
     alignment-baseline: hanging;
-    font-size: 5vh;
     font-family: "Consolas", "Monaco", monospace;
 }
 
@@ -35,6 +34,5 @@ svg {
     fill: #FFF;
     alignment-baseline: middle;
     text-anchor: middle;
-    font-size: 10vh;
     font-family: sans-serif;
 }

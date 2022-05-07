@@ -64,12 +64,15 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
         }
     };
 
+    let font_size = cell_size * 0.5;
+    let font_size_large = font_size * 2.;
+
     html! {
         <svg width={width} height={height}>
-            <text x="0" y="0" class="text">{format!("SCORE: {}", score)}</text>
+            <text x="0" y="0" class="text" font-size={format!("{font_size}px")}>{format!("SCORE: {}", score)}</text>
             {cells}
             if *is_game_over {
-                <text x={center_x} y={center_y} class="text-center" alignment-baseline="hanging">{"GAME OVER"}</text>
+                <text x={center_x} y={center_y} class="text-center" font-size={format!("{font_size_large}px")} alignment-baseline="hanging">{"GAME OVER"}</text>
             }
         </svg>
     }
