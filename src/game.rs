@@ -270,7 +270,7 @@ impl Reducible for Game {
                                         (0., 3.),
                                         (1., 0.),
                                         dist * 3,
-                                        60,
+                                        40,
                                     ))
                                 } else {
                                     None
@@ -331,7 +331,7 @@ impl Reducible for Game {
                                         ((y - dist) as f64, y as f64),
                                         (1., 1.),
                                         0,
-                                        dist * 10 + 1,
+                                        dist * 5 + 1,
                                         cell_type,
                                     ))
                                         as Box<dyn Animation<FloatingCell>>
