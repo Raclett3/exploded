@@ -106,7 +106,7 @@ impl<T, A: Animation<T>> FloatAnimator<T, A> {
     pub fn animate(&mut self) {
         let now = js_sys::Date::now();
         let elapsed = now - self.begin_at;
-        let frames = (elapsed / 60.0).floor() as usize;
+        let frames = (elapsed / 1000.0 * 60.0).floor() as usize;
         let frame_delta = frames - self.elapsed_frames;
         self.elapsed_frames = frames;
 
