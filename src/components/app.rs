@@ -57,8 +57,8 @@ pub fn app() -> Html {
     let game = cloned_game;
     let width = window.inner_width().unwrap().as_f64().unwrap();
     let height = window.inner_height().unwrap().as_f64().unwrap();
-    let (resized_width, resized_height) = fit_with_aspect_ratio(width - 20., height - 20., 8., 9.);
-    let cell_size = resized_width as f64 / 8.;
+    let (resized_width, resized_height) = fit_with_aspect_ratio(width - 20., height - 20., WIDTH as f64, HEIGHT as f64);
+    let cell_size = resized_width as f64 / WIDTH as f64;
 
     let top = (height - resized_height) / 2.;
     let left = (width - resized_width) / 2.;
@@ -68,10 +68,10 @@ pub fn app() -> Html {
         event.prevent_default();
         let x = ((event.client_x() as f64 - left) / cell_size)
             .max(0.)
-            .min(7.) as usize;
+            .min(WIDTH as f64 - 1.) as usize;
         let y = ((event.client_y() as f64 - top) / cell_size)
             .max(0.)
-            .min(8.) as usize;
+            .min(HEIGHT as f64 - 1.) as usize;
         cloned_game.dispatch(GameAction::Remove(x, y));
     });
 
