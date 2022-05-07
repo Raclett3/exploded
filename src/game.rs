@@ -44,6 +44,7 @@ impl BombGenerator {
 
 #[derive(Clone, PartialEq)]
 pub struct FloatingCell {
+    pub id: usize,
     pub x: f64,
     pub y: f64,
     pub cell_type: CellType,
@@ -55,6 +56,7 @@ fn interpolation((from, to): (f64, f64), position: f64) -> f64 {
 }
 
 struct CellAnimator {
+    id: usize,
     x: f64,
     y: (f64, f64),
     opacity: (f64, f64),
@@ -66,6 +68,7 @@ struct CellAnimator {
 
 impl CellAnimator {
     fn new(
+        id: usize,
         x: f64,
         y: (f64, f64),
         opacity: (f64, f64),
@@ -74,6 +77,7 @@ impl CellAnimator {
         cell_type: CellType,
     ) -> Self {
         CellAnimator {
+            id,
             x,
             y,
             opacity,
@@ -94,6 +98,7 @@ impl Animation<FloatingCell> for CellAnimator {
         let relative_time = self.elapsed.saturating_sub(self.delay).min(self.duration) as f64
             / self.duration as f64;
         FloatingCell {
+            id: self.id,
             x: self.x,
             y: interpolation(self.y, relative_time),
             cell_type: self.cell_type,
@@ -108,6 +113,7 @@ impl Animation<FloatingCell> for CellAnimator {
 
 #[derive(Clone, PartialEq)]
 pub struct FloatingParticle {
+    pub id: usize,
     pub color: usize,
     pub x: f64,
     pub y: f64,
@@ -116,6 +122,7 @@ pub struct FloatingParticle {
 }
 
 struct ParticleAnimator {
+    id: usize,
     color: usize,
     x: f64,
     y: f64,
@@ -127,7 +134,9 @@ struct ParticleAnimator {
 }
 
 impl ParticleAnimator {
+    #[allow(clippy::too_many_arguments)]
     fn new(
+        id: usize,
         color: usize,
         x: f64,
         y: f64,
@@ -137,6 +146,7 @@ impl ParticleAnimator {
         duration: usize,
     ) -> Self {
         ParticleAnimator {
+            id,
             color,
             x,
             y,
@@ -158,6 +168,7 @@ impl Animation<FloatingParticle> for ParticleAnimator {
         let relative_time = self.elapsed.saturating_sub(self.delay).min(self.duration) as f64
             / self.duration as f64;
         FloatingParticle {
+            id: self.id,
             color: self.color,
             x: self.x,
             y: self.y,
@@ -242,16 +253,17 @@ impl Reducible for Game {
                 let dists = self_cloned.board.remove(x, y);
                 if !dists.is_empty() {
                     self_cloned.score += (dists.len() + 1) * dists.len() / 2;
-                    let bombs = dists.iter().filter(|x| x.3 == CellType::Bomb).count();
+                    let bombs = dists.iter().filter(|x| x.4 == CellType::Bomb).count();
                     self_cloned.bombs_removed += bombs;
 
                     {
                         let mut particle_animator = self_cloned.particles.borrow_mut();
                         dists
                             .iter()
-                            .flat_map(|&(dist, x, y, cell_type)| {
+                            .flat_map(|&(id, dist, x, y, cell_type)| {
                                 if cell_type == CellType::Bomb {
                                     Some(ParticleAnimator::new(
+                                        id,
                                         dist,
                                         x as f64,
                                         y as f64,
@@ -275,8 +287,9 @@ impl Reducible for Game {
                         .flat_map(|(x, col)| {
                             col.iter().enumerate().flat_map(move |(y, cell)| {
                                 cell.map(|cell| {
-                                    let Cell { cell_type, .. } = cell;
+                                    let Cell { cell_type, id } = cell;
                                     Box::new(CellAnimator::new(
+                                        id,
                                         x as f64,
                                         (y as f64, y as f64),
                                         (1., 1.),
@@ -288,8 +301,9 @@ impl Reducible for Game {
                                 })
                             })
                         })
-                        .chain(dists.iter().map(|&(dist, x, y, cell_type)| {
+                        .chain(dists.iter().map(|&(id, dist, x, y, cell_type)| {
                             Box::new(CellAnimator::new(
+                                id,
                                 x as f64,
                                 (y as f64, y as f64),
                                 (1., 0.),
@@ -312,6 +326,7 @@ impl Reducible for Game {
                                     let Cell { id, cell_type } = cell;
                                     let dist = dists.get(&id).cloned().unwrap_or(0);
                                     Box::new(CellAnimator::new(
+                                        id,
                                         x as f64,
                                         ((y - dist) as f64, y as f64),
                                         (1., 1.),
@@ -333,8 +348,9 @@ impl Reducible for Game {
                         .flat_map(|(x, col)| {
                             col.iter().enumerate().flat_map(move |(y, cell)| {
                                 cell.map(|cell| {
-                                    let Cell { cell_type, .. } = cell;
+                                    let Cell { id, cell_type } = cell;
                                     Box::new(CellAnimator::new(
+                                        id,
                                         x as f64,
                                         ((y + 1) as f64, y as f64),
                                         (1., 1.),

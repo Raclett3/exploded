@@ -55,7 +55,7 @@ impl<const WIDTH: usize, const HEIGHT: usize> Board<WIDTH, HEIGHT> {
         }
     }
 
-    pub fn remove(&mut self, x: usize, y: usize) -> Vec<(usize, usize, usize, CellType)> {
+    pub fn remove(&mut self, x: usize, y: usize) -> Vec<(usize, usize, usize, usize, CellType)> {
         let mut queue = VecDeque::new();
         queue.push_back((x, y, 0));
         let mut dists = Vec::new();
@@ -67,8 +67,8 @@ impl<const WIDTH: usize, const HEIGHT: usize> Board<WIDTH, HEIGHT> {
                 .and_then(|x| x.get_mut(y))
                 .and_then(|x| x.take());
 
-            if let Some(Cell { cell_type, .. }) = cell {
-                dists.push((dist, x, y, cell_type));
+            if let Some(Cell { cell_type, id }) = cell {
+                dists.push((id, dist, x, y, cell_type));
                 if cell_type == CellType::Bomb {
                     for (x, y) in adjacent_cells(x, y, WIDTH, HEIGHT) {
                         queue.push_back((x, y, dist + 1));

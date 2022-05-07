@@ -37,6 +37,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
     let cells = if let Some(floating_cells) = floating_cells {
         let cells = floating_cells.iter().map(|cell| {
             let &FloatingCell {
+                id,
                 x,
                 y,
                 cell_type,
@@ -47,7 +48,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
                 CellType::Tile => Tile,
             };
             html! {
-                <Cell x={x} y={y} opacity={opacity} size={cell_size} cell_type={cell_type} />
+                <Cell key={id} x={x} y={y} opacity={opacity} size={cell_size} cell_type={cell_type} />
             }
         });
         html! {
@@ -60,7 +61,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
                     let (x, y) = (x as f64, y as f64);
                     let cell_type = if cell.is_bomb() { Bomb } else { Tile };
                     html! {
-                        <Cell x={x} y={y} opacity={1.0} size={cell_size} cell_type={cell_type} />
+                        <Cell key={cell.id} x={x} y={y} opacity={1.0} size={cell_size} cell_type={cell_type} />
                     }
                 })
             })
@@ -77,7 +78,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
 
     let particles = particles.iter().map(|x| {
         html! {
-            <Particle x={x.x} y={x.y} color={x.color} opacity={x.opacity} expansion={x.expansion} size={cell_size} />
+            <Particle key={x.id} x={x.x} y={x.y} color={x.color} opacity={x.opacity} expansion={x.expansion} size={cell_size} />
         }
     });
 
