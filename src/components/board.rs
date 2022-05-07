@@ -73,7 +73,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
 
     let particles = particles.iter().map(|x| {
         html! {
-            <Particle key={x.id} x={x.x} y={x.y} color={x.color} opacity={x.opacity} expansion={x.expansion} size={cell_size} />
+            <Particle key={x.id} cell_type={x.cell_type} x={x.x} y={x.y} color={x.color} opacity={x.opacity} expansion={x.expansion} size={cell_size} />
         }
     });
 

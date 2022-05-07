@@ -57,3 +57,8 @@ svg {
     text-anchor: middle;
     font-family: sans-serif;
 }
+
+.rotate-center {
+    transform-box: fill-box;
+    transform-origin: center;
+}

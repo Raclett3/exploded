@@ -8,6 +8,10 @@ use yew::Reducible;
 pub const WIDTH: usize = 8;
 pub const HEIGHT: usize = 9;
 
+const PARTICLE_COLORS: [&str; 7] = [
+    "#FF0000", "#FF8800", "#FFFF00", "#00FF00", "#00FFFF", "#0000FF", "#FF00FF",
+];
+
 #[derive(Clone)]
 struct BombGenerator {
     shuffled: Vec<(usize, usize)>,
@@ -114,7 +118,8 @@ impl Animation<FloatingCell> for CellAnimator {
 #[derive(Clone, PartialEq)]
 pub struct FloatingParticle {
     pub id: usize,
-    pub color: usize,
+    pub color: &'static str,
+    pub cell_type: CellType,
     pub x: f64,
     pub y: f64,
     pub expansion: f64,
@@ -123,7 +128,8 @@ pub struct FloatingParticle {
 
 struct ParticleAnimator {
     id: usize,
-    color: usize,
+    color: &'static str,
+    cell_type: CellType,
     x: f64,
     y: f64,
     expansion: (f64, f64),
@@ -137,7 +143,8 @@ impl ParticleAnimator {
     #[allow(clippy::too_many_arguments)]
     fn new(
         id: usize,
-        color: usize,
+        color: &'static str,
+        cell_type: CellType,
         x: f64,
         y: f64,
         expansion: (f64, f64),
@@ -148,6 +155,7 @@ impl ParticleAnimator {
         ParticleAnimator {
             id,
             color,
+            cell_type,
             x,
             y,
             expansion,
@@ -170,6 +178,7 @@ impl Animation<FloatingParticle> for ParticleAnimator {
         FloatingParticle {
             id: self.id,
             color: self.color,
+            cell_type: self.cell_type,
             x: self.x,
             y: self.y,
             expansion: interpolation(self.expansion, relative_time),
@@ -260,21 +269,22 @@ impl Reducible for Game {
                         let mut particle_animator = self_cloned.particles.borrow_mut();
                         dists
                             .iter()
-                            .flat_map(|&(id, dist, x, y, cell_type)| {
-                                if cell_type == CellType::Bomb {
-                                    Some(ParticleAnimator::new(
-                                        id,
-                                        dist,
-                                        x as f64,
-                                        y as f64,
-                                        (0., 3.),
-                                        (1., 0.),
-                                        dist * 3,
-                                        40,
-                                    ))
-                                } else {
-                                    None
-                                }
+                            .map(|&(id, dist, x, y, cell_type)| {
+                                let (color, expansion, duration) = match cell_type {
+                                    CellType::Bomb => (PARTICLE_COLORS[dist % 7], (0., 3.), 40),
+                                    CellType::Tile => ("#FFFFFF", (0., 1.), 10),
+                                };
+                                ParticleAnimator::new(
+                                    id,
+                                    color,
+                                    cell_type,
+                                    x as f64,
+                                    y as f64,
+                                    expansion,
+                                    (1., 0.),
+                                    dist * 3,
+                                    duration,
+                                )
                             })
                             .for_each(|x| particle_animator.animator.push(x));
                     }
