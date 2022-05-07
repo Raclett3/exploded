@@ -57,7 +57,8 @@ pub fn app() -> Html {
     let game = cloned_game;
     let width = window.inner_width().unwrap().as_f64().unwrap();
     let height = window.inner_height().unwrap().as_f64().unwrap();
-    let (resized_width, resized_height) = fit_with_aspect_ratio(width - 20., height - 20., WIDTH as f64, HEIGHT as f64);
+    let (resized_width, resized_height) =
+        fit_with_aspect_ratio(width - 20., height - 20., WIDTH as f64, HEIGHT as f64);
     let cell_size = resized_width as f64 / WIDTH as f64;
 
     let top = (height - resized_height) / 2.;

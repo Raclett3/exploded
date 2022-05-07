@@ -1,5 +1,5 @@
-use yew::prelude::*;
 use crate::board::CellType;
+use yew::prelude::*;
 
 #[derive(Clone, Properties, PartialEq)]
 pub struct Props {

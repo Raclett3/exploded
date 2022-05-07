@@ -1,6 +1,6 @@
 use super::cell::Cell;
 use super::particle::Particle;
-use crate::board::{Cell as GameCell};
+use crate::board::Cell as GameCell;
 use crate::game::{FloatingCell, FloatingParticle};
 use yew::prelude::*;
 
