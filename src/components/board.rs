@@ -10,6 +10,8 @@ pub struct Props<const WIDTH: usize, const HEIGHT: usize> {
     pub floating_cells: Option<Vec<FloatingCell>>,
     pub score: usize,
     pub is_game_over: bool,
+    pub numerator: usize,
+    pub denominator: usize,
 }
 
 #[function_component(Board)]
@@ -20,6 +22,8 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
         floating_cells,
         score,
         is_game_over,
+        numerator,
+        denominator,
     } = props;
     let cell_size = *cell_size;
     let width = (WIDTH as f64 * cell_size).to_string();
@@ -69,6 +73,8 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
 
     html! {
         <svg width={width} height={height}>
+            <text x={center_x.clone()} y={center_y.clone()} class="numerator" font-size={format!("{font_size_large}px")}>{format!("{numerator:03}")}</text>
+            <text x={center_x.clone()} y={center_y.clone()} class="denominator" font-size={format!("{font_size_large}px")}>{format!("{denominator:03}")}</text>
             <text x="0" y="0" class="text" font-size={format!("{font_size}px")}>{format!("SCORE: {}", score)}</text>
             {cells}
             if *is_game_over {

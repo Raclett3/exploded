@@ -20,6 +20,7 @@ body {
 
 svg {
     border: 1px solid white;
+    cursor: pointer;
 }
 
 .text {
@@ -33,6 +34,26 @@ svg {
     stroke-width: 1px;
     fill: #FFF;
     alignment-baseline: middle;
+    text-anchor: middle;
+    font-family: sans-serif;
+}
+
+.numerator {
+    stroke: #000;
+    stroke-width: 1px;
+    fill: #FFF;
+    opacity: 0.8;
+    alignment-baseline: baseline;
+    text-anchor: middle;
+    font-family: sans-serif;
+}
+
+.denominator {
+    stroke: #000;
+    stroke-width: 1px;
+    fill: #FFF;
+    opacity: 0.5;
+    alignment-baseline: hanging;
     text-anchor: middle;
     font-family: sans-serif;
 }

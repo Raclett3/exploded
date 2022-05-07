@@ -89,7 +89,14 @@ pub fn app() -> Html {
 
     html! {
         <div class="app" onmousedown={onmousedown} style={format!("top: {}px; left: {}px;", top, left)}>
-            <Board<WIDTH, HEIGHT> board={game.board.cells} floating_cells={floating_cells} score={game.score} is_game_over={game.is_over()} cell_size={cell_size} />
+            <Board<WIDTH, HEIGHT>
+                board={game.board.cells}
+                floating_cells={floating_cells}
+                score={game.score}
+                is_game_over={game.is_over()}
+                cell_size={cell_size}
+                numerator={game.bombs_removed.min(game.bombs_limit)}
+                denominator={game.bombs_limit} />
         </div>
     }
 }

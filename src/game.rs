@@ -111,6 +111,8 @@ pub struct Game {
     pub board: GameBoard<WIDTH, HEIGHT>,
     generator: BombGenerator,
     pub score: usize,
+    pub bombs_removed: usize,
+    pub bombs_limit: usize,
     #[allow(clippy::type_complexity)]
     pub animator:
         Option<Rc<RefCell<FloatAnimator<Vec<FloatingCell>, AnimationChain<Vec<FloatingCell>>>>>>,
@@ -128,6 +130,8 @@ impl Game {
             board: GameBoard::new(),
             generator: BombGenerator::new(),
             score: 0,
+            bombs_removed: 0,
+            bombs_limit: 999,
             animator: None,
         }
     }
@@ -141,10 +145,12 @@ impl Game {
     }
 
     pub fn is_over(&self) -> bool {
-        self.board
+        let is_filled = self.board
             .cells
             .iter()
-            .any(|x| x.first().cloned().flatten().is_some())
+            .any(|x| x.first().cloned().flatten().is_some());
+        let reached_limit = self.bombs_limit <= self.bombs_removed;
+        is_filled || reached_limit
     }
 }
 
@@ -165,6 +171,8 @@ impl Reducible for Game {
                 let dists = self_cloned.board.remove(x, y);
                 if !dists.is_empty() {
                     self_cloned.score += (dists.len() + 1) * dists.len() / 2;
+                    let bombs = dists.iter().filter(|x| x.3 == CellType::Bomb).count();
+                    self_cloned.bombs_removed += bombs;
 
                     let remove_animation = self_cloned
                         .board
