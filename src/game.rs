@@ -106,6 +106,71 @@ impl Animation<FloatingCell> for CellAnimator {
     }
 }
 
+#[derive(Clone, PartialEq)]
+pub struct FloatingParticle {
+    pub color: usize,
+    pub x: f64,
+    pub y: f64,
+    pub expansion: f64,
+    pub opacity: f64,
+}
+
+struct ParticleAnimator {
+    color: usize,
+    x: f64,
+    y: f64,
+    expansion: (f64, f64),
+    opacity: (f64, f64),
+    delay: usize,
+    duration: usize,
+    elapsed: usize,
+}
+
+impl ParticleAnimator {
+    fn new(
+        color: usize,
+        x: f64,
+        y: f64,
+        expansion: (f64, f64),
+        opacity: (f64, f64),
+        delay: usize,
+        duration: usize,
+    ) -> Self {
+        ParticleAnimator {
+            color,
+            x,
+            y,
+            expansion,
+            opacity,
+            delay,
+            duration,
+            elapsed: 0,
+        }
+    }
+}
+
+impl Animation<FloatingParticle> for ParticleAnimator {
+    fn advance_frames(&mut self, frames: usize) {
+        self.elapsed += frames;
+    }
+
+    fn current_frame(&self) -> FloatingParticle {
+        let relative_time = self.elapsed.saturating_sub(self.delay).min(self.duration) as f64
+            / self.duration as f64;
+        FloatingParticle {
+            color: self.color,
+            x: self.x,
+            y: self.y,
+            expansion: interpolation(self.expansion, relative_time),
+            opacity: interpolation(self.opacity, relative_time),
+        }
+    }
+
+    fn is_over(&self) -> bool {
+        self.duration + self.delay <= self.elapsed
+    }
+}
+
 #[derive(Clone)]
 pub struct Game {
     pub board: GameBoard<WIDTH, HEIGHT>,
@@ -116,6 +181,8 @@ pub struct Game {
     #[allow(clippy::type_complexity)]
     pub animator:
         Option<Rc<RefCell<FloatAnimator<Vec<FloatingCell>, AnimationChain<Vec<FloatingCell>>>>>>,
+    pub particles:
+        Rc<RefCell<FloatAnimator<Vec<FloatingParticle>, EndlessAnimator<FloatingParticle>>>>,
 }
 
 pub enum GameAction {
@@ -133,6 +200,9 @@ impl Game {
             bombs_removed: 0,
             bombs_limit: 999,
             animator: None,
+            particles: Rc::new(RefCell::new(FloatAnimator::new(EndlessAnimator::new(
+                Vec::new(),
+            )))),
         }
     }
 
@@ -145,7 +215,8 @@ impl Game {
     }
 
     pub fn is_over(&self) -> bool {
-        let is_filled = self.board
+        let is_filled = self
+            .board
             .cells
             .iter()
             .any(|x| x.first().cloned().flatten().is_some());
@@ -173,6 +244,28 @@ impl Reducible for Game {
                     self_cloned.score += (dists.len() + 1) * dists.len() / 2;
                     let bombs = dists.iter().filter(|x| x.3 == CellType::Bomb).count();
                     self_cloned.bombs_removed += bombs;
+
+                    {
+                        let mut particle_animator = self_cloned.particles.borrow_mut();
+                        dists
+                            .iter()
+                            .flat_map(|&(dist, x, y, cell_type)| {
+                                if cell_type == CellType::Bomb {
+                                    Some(ParticleAnimator::new(
+                                        dist,
+                                        x as f64,
+                                        y as f64,
+                                        (0., 3.),
+                                        (1., 0.),
+                                        dist * 3,
+                                        60,
+                                    ))
+                                } else {
+                                    None
+                                }
+                            })
+                            .for_each(|x| particle_animator.animator.push(x));
+                    }
 
                     let remove_animation = self_cloned
                         .board
@@ -271,6 +364,7 @@ impl Reducible for Game {
                 if let Some(animator) = &self.animator {
                     animator.borrow_mut().animate();
                 }
+                self.particles.borrow_mut().animate();
             }
         }
 

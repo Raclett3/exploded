@@ -1,6 +1,7 @@
 use super::cell::{Cell, CellType::*};
+use super::particle::Particle;
 use crate::board::{Cell as GameCell, CellType};
-use crate::game::FloatingCell;
+use crate::game::{FloatingCell, FloatingParticle};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -8,6 +9,7 @@ pub struct Props<const WIDTH: usize, const HEIGHT: usize> {
     pub cell_size: f64,
     pub board: [[Option<GameCell>; HEIGHT]; WIDTH],
     pub floating_cells: Option<Vec<FloatingCell>>,
+    pub particles: Vec<FloatingParticle>,
     pub score: usize,
     pub is_game_over: bool,
     pub numerator: usize,
@@ -20,6 +22,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
         cell_size,
         board,
         floating_cells,
+        particles,
         score,
         is_game_over,
         numerator,
@@ -68,6 +71,16 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
         }
     };
 
+    if !particles.is_empty() {
+        web_sys::console::log_1(&wasm_bindgen::JsValue::from(particles.len() as f64));
+    }
+
+    let particles = particles.iter().map(|x| {
+        html! {
+            <Particle x={x.x} y={x.y} color={x.color} opacity={x.opacity} expansion={x.expansion} size={cell_size} />
+        }
+    });
+
     let font_size = cell_size * 0.5;
     let font_size_large = font_size * 2.;
 
@@ -77,6 +90,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
             <text x={center_x.clone()} y={center_y.clone()} class="denominator" font-size={format!("{font_size_large}px")}>{format!("{denominator:03}")}</text>
             <text x="0" y="0" class="text" font-size={format!("{font_size}px")}>{format!("SCORE: {}", score)}</text>
             {cells}
+            {for particles}
             if *is_game_over {
                 <text x={center_x} y={center_y} class="text-center" font-size={format!("{font_size_large}px")} alignment-baseline="hanging">{"GAME OVER"}</text>
             }

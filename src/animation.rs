@@ -88,7 +88,7 @@ impl<T> Animation<T> for AnimationChain<T> {
 pub struct FloatAnimator<T, A: Animation<T>> {
     begin_at: f64,
     elapsed_frames: usize,
-    animator: A,
+    pub animator: A,
     phantom: std::marker::PhantomData<T>,
 }
 
@@ -121,6 +121,39 @@ impl<T, A: Animation<T>> FloatAnimator<T, A> {
 
     pub fn is_over(&self) -> bool {
         self.animator.is_over()
+    }
+}
+
+pub struct EndlessAnimator<T> {
+    animations: Vec<Box<dyn Animation<T>>>,
+}
+
+impl<T> EndlessAnimator<T> {
+    pub fn new(animations: Vec<Box<dyn Animation<T>>>) -> Self {
+        EndlessAnimator {
+            animations: animations.into_iter().rev().collect(),
+        }
+    }
+
+    pub fn push(&mut self, animation: impl Animation<T> + 'static) {
+        self.animations.push(Box::new(animation));
+    }
+}
+
+impl<T> Animation<Vec<T>> for EndlessAnimator<T> {
+    fn advance_frames(&mut self, frames: usize) {
+        for anim in self.animations.iter_mut() {
+            anim.advance_frames(frames);
+        }
+        self.animations.retain(|x| !x.is_over());
+    }
+
+    fn current_frame(&self) -> Vec<T> {
+        self.animations.iter().map(|x| x.current_frame()).collect()
+    }
+
+    fn is_over(&self) -> bool {
+        true
     }
 }
 
