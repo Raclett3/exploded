@@ -1,6 +1,6 @@
-use super::cell::{Cell, CellType::*};
+use super::cell::Cell;
 use super::particle::Particle;
-use crate::board::{Cell as GameCell, CellType};
+use crate::board::{Cell as GameCell};
 use crate::game::{FloatingCell, FloatingParticle};
 use yew::prelude::*;
 
@@ -43,10 +43,6 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
                 cell_type,
                 opacity,
             } = cell;
-            let cell_type = match cell_type {
-                CellType::Bomb => Bomb,
-                CellType::Tile => Tile,
-            };
             html! {
                 <Cell key={id} x={x} y={y} opacity={opacity} size={cell_size} cell_type={cell_type} />
             }
@@ -59,9 +55,8 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
             column.iter().enumerate().flat_map(move |(y, cell)| {
                 cell.map(|cell| {
                     let (x, y) = (x as f64, y as f64);
-                    let cell_type = if cell.is_bomb() { Bomb } else { Tile };
                     html! {
-                        <Cell key={cell.id} x={x} y={y} opacity={1.0} size={cell_size} cell_type={cell_type} />
+                        <Cell key={cell.id} x={x} y={y} opacity={1.0} size={cell_size} cell_type={cell.cell_type} />
                     }
                 })
             })

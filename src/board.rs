@@ -35,10 +35,6 @@ impl Cell {
     fn new(id: usize, cell_type: CellType) -> Self {
         Cell { id, cell_type }
     }
-
-    pub fn is_bomb(&self) -> bool {
-        self.cell_type == CellType::Bomb
-    }
 }
 
 #[derive(Clone)]

@@ -1,10 +1,5 @@
 use yew::prelude::*;
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum CellType {
-    Tile,
-    Bomb,
-}
+use crate::board::CellType;
 
 #[derive(Clone, Properties, PartialEq)]
 pub struct Props {
