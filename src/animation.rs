@@ -108,6 +108,7 @@ impl<T, A: Animation<T>> FloatAnimator<T, A> {
         let elapsed = now - self.begin_at;
         let frames = (elapsed / 60.0).floor() as usize;
         let frame_delta = frames - self.elapsed_frames;
+        self.elapsed_frames = frames;
 
         if frame_delta > 0 {
             self.animator.advance_frames(frame_delta);
