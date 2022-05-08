@@ -76,6 +76,24 @@ pub fn app() -> Html {
         cloned_game.dispatch(GameAction::Remove(x, y));
     });
 
+    let cloned_game = game.clone();
+    let ontouchstart = Callback::from(move |event: web_sys::TouchEvent| {
+        let touches = event.target_touches();
+        for i in 0..touches.length() {
+            if let Some(event) = touches.item(i) {
+                web_sys::console::log_1(&wasm_bindgen::JsValue::from(event.client_x()));
+                web_sys::console::log_1(&wasm_bindgen::JsValue::from(event.client_y()));
+                let x = ((event.client_x() as f64 - left) / cell_size)
+                    .max(0.)
+                    .min(WIDTH as f64 - 1.) as usize;
+                let y = ((event.client_y() as f64 - top) / cell_size)
+                    .max(0.)
+                    .min(HEIGHT as f64 - 1.) as usize;
+                cloned_game.dispatch(GameAction::Remove(x, y));
+            }
+        }
+    });
+
     let floating_cells = if let Some(animator) = &game.animator {
         let animator = animator.borrow();
 
@@ -91,17 +109,29 @@ pub fn app() -> Html {
     let particles = game.particles.borrow().frame();
     let score = game.score_animator.borrow().frame();
 
-    html! {
-        <div class="app" onmousedown={onmousedown} style={format!("top: {}px; left: {}px;", top, left)}>
-            <Board<WIDTH, HEIGHT>
-                board={game.board.cells}
-                floating_cells={floating_cells}
-                particles={particles}
-                score={score}
-                is_game_over={game.is_over()}
-                cell_size={cell_size}
-                numerator={game.bombs_removed.min(game.bombs_limit)}
-                denominator={game.bombs_limit} />
-        </div>
+    let board = html! {
+        <Board<WIDTH, HEIGHT>
+            board={game.board.cells}
+            floating_cells={floating_cells}
+            particles={particles}
+            score={score}
+            is_game_over={game.is_over()}
+            cell_size={cell_size}
+            numerator={game.bombs_removed.min(game.bombs_limit)}
+            denominator={game.bombs_limit} />
+    };
+
+    if window.navigator().max_touch_points() > 0 {
+        html! {
+            <div class="app" ontouchstart={ontouchstart} style={format!("top: {}px; left: {}px;", top, left)}>
+                {board}
+            </div>
+        }
+    } else {
+        html! {
+            <div class="app" onmousedown={onmousedown} style={format!("top: {}px; left: {}px;", top, left)}>
+                {board}
+            </div>
+        }
     }
 }

@@ -16,6 +16,7 @@ body {
 
 .app {
     position: absolute;
+    touch-action: manipulation;
 }
 
 svg {
