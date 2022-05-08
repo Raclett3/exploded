@@ -313,7 +313,7 @@ impl Reducible for Game {
                                     CellType::Tile => ("#FFFFFF", (0., 1.), 10),
                                 };
                                 ParticleAnimator::new(
-                                    id,
+                                    id + 1_000_000,
                                     color,
                                     cell_type,
                                     x as f64,
