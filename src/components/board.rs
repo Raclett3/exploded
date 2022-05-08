@@ -67,10 +67,6 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
         }
     };
 
-    if !particles.is_empty() {
-        web_sys::console::log_1(&wasm_bindgen::JsValue::from(particles.len() as f64));
-    }
-
     let particles = particles.iter().map(|x| {
         html! {
             <Particle key={x.id} cell_type={x.cell_type} x={x.x} y={x.y} color={x.color} opacity={x.opacity} expansion={x.expansion} size={cell_size} />
