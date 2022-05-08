@@ -14,6 +14,7 @@ pub struct Props<const WIDTH: usize, const HEIGHT: usize> {
     pub is_game_over: bool,
     pub numerator: usize,
     pub denominator: usize,
+    pub rank: &'static str,
 }
 
 #[function_component(Board)]
@@ -27,12 +28,15 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
         is_game_over,
         numerator,
         denominator,
+        rank,
     } = props;
     let cell_size = *cell_size;
     let width = (WIDTH as f64 * cell_size).to_string();
     let height = (HEIGHT as f64 * cell_size).to_string();
     let center_x = (WIDTH as f64 * cell_size / 2.).to_string();
     let center_y = (HEIGHT as f64 * cell_size / 2.).to_string();
+    let upper_y = (HEIGHT as f64 * cell_size / 3.).to_string();
+    let lower_y = (HEIGHT as f64 * cell_size / 3. * 2.).to_string();
 
     let cells = if let Some(floating_cells) = floating_cells {
         let cells = floating_cells.iter().map(|cell| {
@@ -79,12 +83,16 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
     html! {
         <svg width={width} height={height}>
             <text x={center_x.clone()} y={center_y.clone()} class="numerator" font-size={format!("{font_size_large}px")}>{format!("{numerator:03}")}</text>
-            <text x={center_x.clone()} y={center_y.clone()} class="denominator" font-size={format!("{font_size_large}px")}>{format!("{denominator:03}")}</text>
+            <text x={center_x.clone()} y={center_y} class="denominator" font-size={format!("{font_size_large}px")}>{format!("{denominator:03}")}</text>
             <text x="0" y="0" class="text" font-size={format!("{font_size}px")}>{format!("SCORE: {}", score)}</text>
             {cells}
             {for particles}
             if *is_game_over {
-                <text x={center_x} y={center_y} class="text-center" font-size={format!("{font_size_large}px")} alignment-baseline="hanging">{"GAME OVER"}</text>
+                <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} alignment-baseline="hanging">{"GAME OVER"}</text>
+                <text x={center_x} y={lower_y} class="text-center" alignment-baseline="baseline">
+                    <tspan font-size={format!("{font_size}px")}>{"RANK:"}</tspan>
+                    <tspan font-size={format!("{font_size_large}px")}>{rank}</tspan>
+                </text>
             }
         </svg>
     }

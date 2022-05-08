@@ -6,6 +6,19 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use yew::prelude::*;
 
+const RANKS: [(usize, &str); 10] = [
+    (0, "D"),
+    (5000, "D+"),
+    (10000, "C"),
+    (15000, "C+"),
+    (20000, "B"),
+    (25000, "B+"),
+    (30000, "A"),
+    (35000, "A+"),
+    (40000, "A++"),
+    (50000, "Awesome"),
+];
+
 fn fit_with_aspect_ratio(
     width: f64,
     height: f64,
@@ -108,6 +121,11 @@ pub fn app() -> Html {
 
     let particles = game.particles.borrow().frame();
     let score = game.score_animator.borrow().frame();
+    let rank_index = RANKS
+        .binary_search_by_key(&(game.score + 1), |x| x.0)
+        .unwrap_or_else(|x| x)
+        - 1;
+    let rank = RANKS[rank_index].1;
 
     let board = html! {
         <Board<WIDTH, HEIGHT>
@@ -118,7 +136,8 @@ pub fn app() -> Html {
             is_game_over={game.is_over()}
             cell_size={cell_size}
             numerator={game.bombs_removed.min(game.bombs_limit)}
-            denominator={game.bombs_limit} />
+            denominator={game.bombs_limit}
+            rank={rank} />
     };
 
     if window.navigator().max_touch_points() > 0 {
