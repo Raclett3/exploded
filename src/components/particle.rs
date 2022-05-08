@@ -44,9 +44,9 @@ pub fn particle(props: &Props) -> Html {
             let y = (cy - r).to_string();
             let width = (r * 2.).to_string();
             let height = width.clone();
-            let rotate = format!("rotate({})", (expansion * 90.) as isize);
+            let style = format!("transform:rotate({}deg);", (expansion * 90.) as isize);
             html! {
-                <rect x={x} y={y} width={width} height={height} opacity={opacity} transform={rotate} class="rotate-center stroke" />
+                <rect x={x} y={y} width={width} height={height} opacity={opacity} style={style} class="rotate-center stroke" />
             }
         }
     }
