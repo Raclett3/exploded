@@ -89,6 +89,7 @@ pub fn app() -> Html {
     };
 
     let particles = game.particles.borrow().frame();
+    let score = game.score_animator.borrow().frame();
 
     html! {
         <div class="app" onmousedown={onmousedown} style={format!("top: {}px; left: {}px;", top, left)}>
@@ -96,7 +97,7 @@ pub fn app() -> Html {
                 board={game.board.cells}
                 floating_cells={floating_cells}
                 particles={particles}
-                score={game.score}
+                score={score}
                 is_game_over={game.is_over()}
                 cell_size={cell_size}
                 numerator={game.bombs_removed.min(game.bombs_limit)}

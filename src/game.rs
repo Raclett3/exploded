@@ -191,6 +191,37 @@ impl Animation<FloatingParticle> for ParticleAnimator {
     }
 }
 
+pub struct NumberAnimator {
+    target: usize,
+    current: usize,
+}
+
+impl NumberAnimator {
+    fn new(target: usize) -> Self {
+        NumberAnimator { target, current: 0 }
+    }
+
+    fn set_target(&mut self, target: usize) {
+        self.target = target;
+    }
+}
+
+impl Animation<usize> for NumberAnimator {
+    fn advance_frames(&mut self, frames: usize) {
+        for _ in 0..frames {
+            self.current = (self.current * 3 + self.target + 3) / 4;
+        }
+    }
+
+    fn current_frame(&self) -> usize {
+        self.current
+    }
+
+    fn is_over(&self) -> bool {
+        false
+    }
+}
+
 #[derive(Clone)]
 pub struct Game {
     pub board: GameBoard<WIDTH, HEIGHT>,
@@ -203,6 +234,7 @@ pub struct Game {
         Option<Rc<RefCell<FloatAnimator<Vec<FloatingCell>, AnimationChain<Vec<FloatingCell>>>>>>,
     pub particles:
         Rc<RefCell<FloatAnimator<Vec<FloatingParticle>, EndlessAnimator<FloatingParticle>>>>,
+    pub score_animator: Rc<RefCell<FloatAnimator<usize, NumberAnimator>>>,
 }
 
 pub enum GameAction {
@@ -223,6 +255,7 @@ impl Game {
             particles: Rc::new(RefCell::new(FloatAnimator::new(EndlessAnimator::new(
                 Vec::new(),
             )))),
+            score_animator: Rc::new(RefCell::new(FloatAnimator::new(NumberAnimator::new(0)))),
         }
     }
 
@@ -262,6 +295,11 @@ impl Reducible for Game {
                 let dists = self_cloned.board.remove(x, y);
                 if !dists.is_empty() {
                     self_cloned.score += (dists.len() + 1) * dists.len() / 2;
+                    self_cloned
+                        .score_animator
+                        .borrow_mut()
+                        .animator
+                        .set_target(self_cloned.score);
                     let bombs = dists.iter().filter(|x| x.4 == CellType::Bomb).count();
                     self_cloned.bombs_removed += bombs;
 
@@ -391,6 +429,7 @@ impl Reducible for Game {
                     animator.borrow_mut().animate();
                 }
                 self.particles.borrow_mut().animate();
+                self.score_animator.borrow_mut().animate();
             }
         }
 
