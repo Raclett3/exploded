@@ -81,19 +81,20 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
     let font_size_large = font_size * 2.;
 
     html! {
-        <svg width={width} height={height}>
+        <svg width={width.clone()} height={height.clone()}>
             <text x={center_x.clone()} y={center_y.clone()} class="numerator" font-size={format!("{font_size_large}px")}>{format!("{numerator:03}")}</text>
             <text x={center_x.clone()} y={center_y} class="denominator" font-size={format!("{font_size_large}px")}>{format!("{denominator:03}")}</text>
-            <text x="0" y="0" class="text" font-size={format!("{font_size}px")}>{format!("SCORE: {}", score)}</text>
             {cells}
             {for particles}
             if *is_game_over {
+                <rect x="0" y="0" width={width} height={height} fill="rgba(0, 0, 0, 0.5)" />
                 <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} alignment-baseline="hanging">{"GAME OVER"}</text>
                 <text x={center_x} y={lower_y} class="text-center" alignment-baseline="baseline">
                     <tspan font-size={format!("{font_size}px")}>{"RANK:"}</tspan>
                     <tspan font-size={format!("{font_size_large}px")}>{rank}</tspan>
                 </text>
             }
+            <text x="0" y="0" class="text" font-size={format!("{font_size}px")}>{format!("SCORE: {}", score)}</text>
         </svg>
     }
 }

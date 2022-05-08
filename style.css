@@ -25,6 +25,8 @@ svg {
 }
 
 .text {
+    stroke: #000;
+    stroke-width: 1px;
     fill: #FFF;
     alignment-baseline: hanging;
     font-family: "Consolas", "Monaco", monospace;
