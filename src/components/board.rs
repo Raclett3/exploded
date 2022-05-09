@@ -88,8 +88,8 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
             {for particles}
             if *is_game_over {
                 <rect x="0" y="0" width={width} height={height} fill="rgba(0, 0, 0, 0.5)" />
-                <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} alignment-baseline="hanging">{"GAME OVER"}</text>
-                <text x={center_x} y={lower_y} class="text-center" alignment-baseline="baseline">
+                <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"GAME OVER"}</text>
+                <text x={center_x} y={lower_y} class="text-center" dominant-baseline="baseline">
                     <tspan font-size={format!("{font_size}px")}>{"RANK:"}</tspan>
                     <tspan font-size={format!("{font_size_large}px")}>{rank}</tspan>
                 </text>
