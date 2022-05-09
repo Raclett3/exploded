@@ -50,6 +50,7 @@ dependencies = [
  "js-sys",
  "rand",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
  "yew",
 ]

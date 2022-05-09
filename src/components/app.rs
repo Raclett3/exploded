@@ -2,6 +2,7 @@ use super::board::Board;
 use crate::game::*;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use yew::prelude::*;
@@ -51,14 +52,90 @@ fn raf_loop(mut func: impl FnMut() + 'static) {
     request_animation_frame(&window, f.borrow().as_ref().unwrap());
 }
 
+struct Audio {
+    context: web_sys::AudioContext,
+    buf: web_sys::AudioBuffer,
+}
+
+impl Audio {
+    fn new(context: web_sys::AudioContext, buf: web_sys::AudioBuffer) -> Self {
+        Audio { context, buf }
+    }
+
+    fn play(&self) {
+        let node = self.context.create_buffer_source().unwrap();
+        node.set_buffer(Some(&self.buf));
+        node.connect_with_audio_node(&self.context.destination())
+            .unwrap();
+        node.start().unwrap();
+    }
+}
+
+struct LazyAudio {
+    src: String,
+    audio: Arc<Mutex<Option<Audio>>>,
+}
+
+async fn resolve_promise<T: From<JsValue>>(promise: js_sys::Promise) -> T {
+    wasm_bindgen_futures::JsFuture::from(promise)
+        .await
+        .unwrap()
+        .into()
+}
+
+impl LazyAudio {
+    fn new(src: &str) -> LazyAudio {
+        LazyAudio {
+            src: src.to_string(),
+            audio: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    async fn load(&self) {
+        let mut audio = self.audio.lock().unwrap();
+        if audio.is_none() {
+            let context = web_sys::AudioContext::new().unwrap();
+            let window = web_sys::window().unwrap();
+            let res: web_sys::Response = resolve_promise(window.fetch_with_str(&self.src)).await;
+            let array_buffer: js_sys::ArrayBuffer =
+                resolve_promise(res.array_buffer().unwrap()).await;
+            let buffer: web_sys::AudioBuffer =
+                resolve_promise(context.decode_audio_data(&array_buffer).unwrap()).await;
+            *audio = Some(Audio::new(context, buffer));
+        }
+    }
+
+    async fn play_force(&self) {
+        let audio = self.audio.lock().unwrap();
+        audio.as_ref().unwrap().play();
+    }
+
+    async fn play(&self) {
+        let is_loaded = {
+            let audio = self.audio.lock().unwrap();
+            audio.is_some()
+        };
+
+        if is_loaded {
+            self.play_force().await;
+        } else {
+            self.load().await;
+            self.play_force().await;
+        }
+    }
+}
+
 #[function_component(App)]
 pub fn app() -> Html {
     let game = use_reducer(Game::new);
+    let audio = use_ref(|| LazyAudio::new("/sound/break.wav"));
 
     let cloned_game = game.clone();
 
+    let cloned_audio = audio.clone();
     use_effect_with_deps(
         move |_| {
+            wasm_bindgen_futures::spawn_local(async move { cloned_audio.load().await });
             game.dispatch(GameAction::Feed);
             raf_loop(move || game.dispatch(GameAction::Animate));
             || ()
@@ -87,6 +164,9 @@ pub fn app() -> Html {
             .max(0.)
             .min(HEIGHT as f64 - 1.) as usize;
         cloned_game.dispatch(GameAction::Remove(x, y));
+
+        let audio = audio.clone();
+        wasm_bindgen_futures::spawn_local(async move { audio.play().await });
     });
 
     let cloned_game = game.clone();
