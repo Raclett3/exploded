@@ -487,7 +487,7 @@ impl Reducible for Game {
                             })
                         })
                         .collect();
-                    let feed_sound = vec![(0, Sound::Feed)];
+                    let feed_sound = vec![(3, Sound::Feed)];
 
                     let animation = Animator::new(remove_animation)
                         .zip(SoundPlayer::new(remove_sounds))
