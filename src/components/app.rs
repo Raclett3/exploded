@@ -53,12 +53,12 @@ fn raf_loop(mut func: impl FnMut() + 'static) {
 }
 
 struct Audio {
-    context: web_sys::AudioContext,
+    context: Rc<web_sys::AudioContext>,
     buf: web_sys::AudioBuffer,
 }
 
 impl Audio {
-    fn new(context: web_sys::AudioContext, buf: web_sys::AudioBuffer) -> Self {
+    fn new(context: Rc<web_sys::AudioContext>, buf: web_sys::AudioBuffer) -> Self {
         Audio { context, buf }
     }
 
@@ -72,6 +72,7 @@ impl Audio {
 }
 
 struct LazyAudio {
+    context: Rc<web_sys::AudioContext>,
     src: String,
     audio: Arc<Mutex<Option<Audio>>>,
 }
@@ -84,8 +85,9 @@ async fn resolve_promise<T: From<JsValue>>(promise: js_sys::Promise) -> T {
 }
 
 impl LazyAudio {
-    fn new(src: &str) -> LazyAudio {
+    fn new(src: &str, context: Rc<web_sys::AudioContext>) -> LazyAudio {
         LazyAudio {
+            context,
             src: src.to_string(),
             audio: Arc::new(Mutex::new(None)),
         }
@@ -94,14 +96,13 @@ impl LazyAudio {
     async fn load(&self) {
         let mut audio = self.audio.lock().unwrap();
         if audio.is_none() {
-            let context = web_sys::AudioContext::new().unwrap();
             let window = web_sys::window().unwrap();
             let res: web_sys::Response = resolve_promise(window.fetch_with_str(&self.src)).await;
             let array_buffer: js_sys::ArrayBuffer =
                 resolve_promise(res.array_buffer().unwrap()).await;
             let buffer: web_sys::AudioBuffer =
-                resolve_promise(context.decode_audio_data(&array_buffer).unwrap()).await;
-            *audio = Some(Audio::new(context, buffer));
+                resolve_promise(self.context.decode_audio_data(&array_buffer).unwrap()).await;
+            *audio = Some(Audio::new(self.context.clone(), buffer));
         }
     }
 
@@ -128,9 +129,13 @@ impl LazyAudio {
 #[function_component(App)]
 pub fn app() -> Html {
     let game = use_reducer(Game::new);
-    let break_sound = use_ref(|| LazyAudio::new("/sound/break.wav"));
-    let fall_sound = use_ref(|| LazyAudio::new("/sound/fall.wav"));
-    let feed_sound = use_ref(|| LazyAudio::new("/sound/feed.wav"));
+    let audio_context = use_ref(|| web_sys::AudioContext::new().unwrap());
+    let cloned_context = audio_context.clone();
+    let break_sound = use_ref(|| LazyAudio::new("/sound/break.wav", cloned_context));
+    let cloned_context = audio_context.clone();
+    let fall_sound = use_ref(|| LazyAudio::new("/sound/fall.wav", cloned_context));
+    let cloned_context = audio_context.clone();
+    let feed_sound = use_ref(|| LazyAudio::new("/sound/feed.wav", cloned_context));
 
     let cloned_game = game.clone();
 
