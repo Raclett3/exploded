@@ -231,7 +231,7 @@ pub struct Game {
     pub bombs_limit: usize,
     #[allow(clippy::type_complexity)]
     pub animator:
-        Option<Rc<RefCell<FloatAnimator<Vec<FloatingCell>, AnimationChain<Vec<FloatingCell>>>>>>,
+        Option<Rc<RefCell<FloatAnimator<Vec<FloatingCell>, dyn Animation<Vec<FloatingCell>>>>>>,
     pub particles:
         Rc<RefCell<FloatAnimator<Vec<FloatingParticle>, EndlessAnimator<FloatingParticle>>>>,
     pub score_animator: Rc<RefCell<FloatAnimator<usize, NumberAnimator>>>,
@@ -252,10 +252,10 @@ impl Game {
             bombs_removed: 0,
             bombs_limit: 999,
             animator: None,
-            particles: Rc::new(RefCell::new(FloatAnimator::new(EndlessAnimator::new(
+            particles: Rc::new(RefCell::new(FloatAnimator::new(Box::new(EndlessAnimator::new(
                 Vec::new(),
-            )))),
-            score_animator: Rc::new(RefCell::new(FloatAnimator::new(NumberAnimator::new(0)))),
+            ))))),
+            score_animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(NumberAnimator::new(0))))),
         }
     }
 
@@ -298,7 +298,7 @@ impl Reducible for Game {
                     self_cloned
                         .score_animator
                         .borrow_mut()
-                        .animator
+                        .animation
                         .set_target(self_cloned.score);
                     let bombs = dists.iter().filter(|x| x.4 == CellType::Bomb).count();
                     self_cloned.bombs_removed += bombs;
@@ -324,7 +324,7 @@ impl Reducible for Game {
                                     duration,
                                 )
                             })
-                            .for_each(|x| particle_animator.animator.push(x));
+                            .for_each(|x| particle_animator.animation.push(x));
                     }
 
                     let remove_animation = self_cloned
@@ -412,13 +412,11 @@ impl Reducible for Game {
                         })
                         .collect();
 
-                    let animation = AnimationChain::new(vec![
-                        Box::new(Animator::new(remove_animation)),
-                        Box::new(Animator::new(cells_animation)),
-                        Box::new(Animator::new(feed_animation)),
-                    ]);
+                    let animation = Animator::new(remove_animation)
+                        .chain(Animator::new(cells_animation))
+                        .chain(Animator::new(feed_animation));
                     self_cloned.animator =
-                        Some(Rc::new(RefCell::new(FloatAnimator::new(animation))));
+                        Some(Rc::new(RefCell::new(FloatAnimator::new(Box::new(animation)))));
                 }
             }
             GameAction::Feed => {

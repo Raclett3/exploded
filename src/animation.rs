@@ -1,7 +1,16 @@
+use std::marker::PhantomData;
+
 pub trait Animation<T> {
     fn advance_frames(&mut self, frames: usize);
     fn current_frame(&self) -> T;
     fn is_over(&self) -> bool;
+
+    fn chain<A: Animation<T>>(self, right: A) -> AnimationChain<T, Self, A>
+    where
+        Self: Sized,
+    {
+        AnimationChain::new(self, right)
+    }
 }
 
 pub struct ConstantAnimation<T, F: Fn() -> T>(F);
@@ -49,57 +58,61 @@ impl<T> Animation<Vec<T>> for Animator<T> {
     }
 }
 
-pub struct AnimationChain<T> {
-    animations: Vec<Box<dyn Animation<T>>>,
+pub struct AnimationChain<T, A1: Animation<T>, A2: Animation<T>> {
+    animation_1: A1,
+    animation_2: A2,
+    phantom: PhantomData<T>,
 }
 
-impl<T> AnimationChain<T> {
-    pub fn new(animations: Vec<Box<dyn Animation<T>>>) -> Self {
+impl<T, A1: Animation<T>, A2: Animation<T>> AnimationChain<T, A1, A2> {
+    fn new(animation_1: A1, animation_2: A2) -> Self {
         AnimationChain {
-            animations: animations.into_iter().rev().collect(),
+            animation_1,
+            animation_2,
+            phantom: PhantomData,
         }
     }
 }
 
-impl<T> Animation<T> for AnimationChain<T> {
+impl<T, A1: Animation<T>, A2: Animation<T>> Animation<T> for AnimationChain<T, A1, A2> {
     fn advance_frames(&mut self, frames: usize) {
         for _ in 0..frames {
-            if let Some(anim) = self.animations.last_mut() {
-                anim.advance_frames(1);
+            if self.animation_1.is_over() {
+                self.animation_2.advance_frames(1)
             } else {
-                break;
-            }
-
-            while self.animations.len() >= 2 && self.animations.last().unwrap().is_over() {
-                self.animations.pop();
+                self.animation_1.advance_frames(1)
             }
         }
     }
 
     fn current_frame(&self) -> T {
-        self.animations.last().unwrap().current_frame()
+        if self.animation_1.is_over() {
+            self.animation_2.current_frame()
+        } else {
+            self.animation_1.current_frame()
+        }
     }
 
     fn is_over(&self) -> bool {
-        self.animations.last().unwrap().is_over()
+        self.animation_1.is_over() && self.animation_2.is_over()
     }
 }
 
-pub struct FloatAnimator<T, A: Animation<T>> {
+pub struct FloatAnimator<T, A: Animation<T> + ?Sized> {
     begin_at: f64,
     elapsed_frames: usize,
-    pub animator: A,
-    phantom: std::marker::PhantomData<T>,
+    pub animation: Box<A>,
+    phantom: PhantomData<T>,
 }
 
-impl<T, A: Animation<T>> FloatAnimator<T, A> {
-    pub fn new(animator: A) -> Self {
+impl<T, A: Animation<T> + ?Sized> FloatAnimator<T, A> {
+    pub fn new(animation: Box<A>) -> Self {
         let now = js_sys::Date::now();
         FloatAnimator {
             begin_at: now,
             elapsed_frames: 0,
-            animator,
-            phantom: std::marker::PhantomData,
+            animation,
+            phantom: PhantomData,
         }
     }
 
@@ -111,16 +124,16 @@ impl<T, A: Animation<T>> FloatAnimator<T, A> {
         self.elapsed_frames = frames;
 
         if frame_delta > 0 {
-            self.animator.advance_frames(frame_delta);
+            self.animation.advance_frames(frame_delta);
         }
     }
 
     pub fn frame(&self) -> T {
-        self.animator.current_frame()
+        self.animation.current_frame()
     }
 
     pub fn is_over(&self) -> bool {
-        self.animator.is_over()
+        self.animation.is_over()
     }
 }
 
