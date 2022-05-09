@@ -2,6 +2,7 @@ use crate::animation::*;
 use crate::board::{Board as GameBoard, Cell, CellType};
 use rand::prelude::*;
 use std::cell::RefCell;
+use std::collections::BTreeSet;
 use std::rc::Rc;
 use yew::Reducible;
 
@@ -222,6 +223,53 @@ impl Animation<usize> for NumberAnimator {
     }
 }
 
+pub enum Sound {
+    Break,
+    Fall,
+    Feed,
+}
+
+pub struct SoundPlayer {
+    frames_elapsed: usize,
+    events: Vec<(usize, Sound)>,
+    current: RefCell<Vec<Sound>>,
+}
+
+impl SoundPlayer {
+    fn new(mut events: Vec<(usize, Sound)>) -> Self {
+        events.sort_by_key(|x| std::cmp::Reverse(x.0));
+        let mut player = SoundPlayer {
+            events,
+            frames_elapsed: 0,
+            current: RefCell::new(Vec::new()),
+        };
+        player.advance_frames(0);
+        player
+    }
+}
+
+impl Animation<Vec<Sound>> for SoundPlayer {
+    fn current_frame(&self) -> Vec<Sound> {
+        let mut current = self.current.borrow_mut();
+        std::mem::take(current.as_mut())
+    }
+
+    fn advance_frames(&mut self, frames: usize) {
+        self.frames_elapsed += frames;
+        while !self.events.is_empty() {
+            if self.events[self.events.len() - 1].0 <= self.frames_elapsed {
+                self.current.borrow_mut().push(self.events.pop().unwrap().1);
+            } else {
+                break;
+            }
+        }
+    }
+
+    fn is_over(&self) -> bool {
+        self.events.is_empty() && self.current.borrow().is_empty()
+    }
+}
+
 #[derive(Clone)]
 pub struct Game {
     pub board: GameBoard<WIDTH, HEIGHT>,
@@ -230,8 +278,16 @@ pub struct Game {
     pub bombs_removed: usize,
     pub bombs_limit: usize,
     #[allow(clippy::type_complexity)]
-    pub animator:
-        Option<Rc<RefCell<FloatAnimator<Vec<FloatingCell>, dyn Animation<Vec<FloatingCell>>>>>>,
+    pub animator: Option<
+        Rc<
+            RefCell<
+                FloatAnimator<
+                    (Vec<FloatingCell>, Vec<Sound>),
+                    dyn Animation<(Vec<FloatingCell>, Vec<Sound>)>,
+                >,
+            >,
+        >,
+    >,
     pub particles:
         Rc<RefCell<FloatAnimator<Vec<FloatingParticle>, EndlessAnimator<FloatingParticle>>>>,
     pub score_animator: Rc<RefCell<FloatAnimator<usize, NumberAnimator>>>,
@@ -252,10 +308,12 @@ impl Game {
             bombs_removed: 0,
             bombs_limit: 999,
             animator: None,
-            particles: Rc::new(RefCell::new(FloatAnimator::new(Box::new(EndlessAnimator::new(
-                Vec::new(),
-            ))))),
-            score_animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(NumberAnimator::new(0))))),
+            particles: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
+                EndlessAnimator::new(Vec::new()),
+            )))),
+            score_animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
+                NumberAnimator::new(0),
+            )))),
         }
     }
 
@@ -361,6 +419,16 @@ impl Reducible for Game {
                             )) as Box<dyn Animation<FloatingCell>>
                         }))
                         .collect();
+                    let remove_sounds = dists
+                        .iter()
+                        .flat_map(|&(_, dist, _, _, cell_type)| {
+                            if cell_type == CellType::Bomb || dist == 0 {
+                                Some((dist * 3, Sound::Break))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
                     let dists = self_cloned.board.apply_gravity();
                     let cells_animation = self_cloned
                         .board
@@ -387,6 +455,14 @@ impl Reducible for Game {
                             })
                         })
                         .collect();
+                    let mut dist_set = BTreeSet::new();
+                    for (_, &dist) in dists.iter() {
+                        dist_set.insert(dist);
+                    }
+                    let fall_sounds = dist_set
+                        .iter()
+                        .map(|dist| (dist * 5 + 1, Sound::Fall))
+                        .collect();
                     self_cloned.feed();
                     let feed_animation = self_cloned
                         .board
@@ -411,12 +487,15 @@ impl Reducible for Game {
                             })
                         })
                         .collect();
+                    let feed_sound = vec![(0, Sound::Feed)];
 
                     let animation = Animator::new(remove_animation)
-                        .chain(Animator::new(cells_animation))
-                        .chain(Animator::new(feed_animation));
-                    self_cloned.animator =
-                        Some(Rc::new(RefCell::new(FloatAnimator::new(Box::new(animation)))));
+                        .zip(SoundPlayer::new(remove_sounds))
+                        .chain(Animator::new(cells_animation).zip(SoundPlayer::new(fall_sounds)))
+                        .chain(Animator::new(feed_animation).zip(SoundPlayer::new(feed_sound)));
+                    self_cloned.animator = Some(Rc::new(RefCell::new(FloatAnimator::new(
+                        Box::new(animation),
+                    ))));
                 }
             }
             GameAction::Feed => {

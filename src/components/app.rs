@@ -128,14 +128,20 @@ impl LazyAudio {
 #[function_component(App)]
 pub fn app() -> Html {
     let game = use_reducer(Game::new);
-    let audio = use_ref(|| LazyAudio::new("/sound/break.wav"));
+    let break_sound = use_ref(|| LazyAudio::new("/sound/break.wav"));
+    let fall_sound = use_ref(|| LazyAudio::new("/sound/fall.wav"));
+    let feed_sound = use_ref(|| LazyAudio::new("/sound/feed.wav"));
 
     let cloned_game = game.clone();
 
-    let cloned_audio = audio.clone();
+    let cloned_break = break_sound.clone();
+    let cloned_fall = fall_sound.clone();
+    let cloned_feed = feed_sound.clone();
     use_effect_with_deps(
         move |_| {
-            wasm_bindgen_futures::spawn_local(async move { cloned_audio.load().await });
+            wasm_bindgen_futures::spawn_local(async move { cloned_break.load().await });
+            wasm_bindgen_futures::spawn_local(async move { cloned_fall.load().await });
+            wasm_bindgen_futures::spawn_local(async move { cloned_feed.load().await });
             game.dispatch(GameAction::Feed);
             raf_loop(move || game.dispatch(GameAction::Animate));
             || ()
@@ -164,9 +170,6 @@ pub fn app() -> Html {
             .max(0.)
             .min(HEIGHT as f64 - 1.) as usize;
         cloned_game.dispatch(GameAction::Remove(x, y));
-
-        let audio = audio.clone();
-        wasm_bindgen_futures::spawn_local(async move { audio.play().await });
     });
 
     let cloned_game = game.clone();
@@ -187,17 +190,28 @@ pub fn app() -> Html {
         }
     });
 
-    let floating_cells = if let Some(animator) = &game.animator {
+    let (floating_cells, sounds) = if let Some(animator) = &game.animator {
         let animator = animator.borrow();
 
         if !animator.is_over() {
-            Some(animator.frame())
+            let (frame, sound) = animator.frame();
+            (Some(frame), sound)
         } else {
-            None
+            (None, Vec::new())
         }
     } else {
-        None
+        (None, Vec::new())
     };
+
+    if let Some(sound) = sounds.first() {
+        let sound = match sound {
+            Sound::Break => break_sound,
+            Sound::Feed => feed_sound,
+            Sound::Fall => fall_sound,
+        };
+
+        wasm_bindgen_futures::spawn_local(async move { sound.play().await });
+    }
 
     let particles = game.particles.borrow().frame();
     let score = game.score_animator.borrow().frame();
