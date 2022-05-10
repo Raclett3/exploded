@@ -86,7 +86,7 @@ pub fn board<const WIDTH: usize, const HEIGHT: usize>(props: &Props<WIDTH, HEIGH
             <text x={center_x.clone()} y={center_y} class="denominator" font-size={format!("{font_size_large}px")}>{format!("{denominator:03}")}</text>
             {cells}
             {for particles}
-            if *is_game_over {
+            if *is_game_over && floating_cells.is_none() {
                 <rect x="0" y="0" width={width} height={height} fill="rgba(0, 0, 0, 0.5)" />
                 <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"GAME OVER"}</text>
                 <text x={center_x} y={lower_y} class="text-center" dominant-baseline="baseline">

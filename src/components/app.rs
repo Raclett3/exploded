@@ -136,6 +136,8 @@ pub fn app() -> Html {
     let fall_sound = use_ref(|| LazyAudio::new("/sound/fall.wav", cloned_context));
     let cloned_context = audio_context.clone();
     let feed_sound = use_ref(|| LazyAudio::new("/sound/feed.wav", cloned_context));
+    let cloned_context = audio_context.clone();
+    let stuck_sound = use_ref(|| LazyAudio::new("/sound/stuck.wav", cloned_context));
 
     let cloned_game = game.clone();
 
@@ -213,6 +215,7 @@ pub fn app() -> Html {
             Sound::Break => break_sound,
             Sound::Feed => feed_sound,
             Sound::Fall => fall_sound,
+            Sound::Stuck => stuck_sound,
         };
 
         wasm_bindgen_futures::spawn_local(async move { sound.play().await });
