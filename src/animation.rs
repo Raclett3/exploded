@@ -211,6 +211,48 @@ impl<T, U, A1: Animation<T>, A2: Animation<U>> Animation<(T, U)> for AnimationZi
     }
 }
 
+pub struct AnimationStream<T> {
+    animations: Vec<Box<dyn Animation<T>>>,
+}
+
+impl<T> AnimationStream<T> {
+    pub fn new() -> Self {
+        AnimationStream {
+            animations: Vec::new(),
+        }
+    }
+
+    pub fn push(&mut self, animation: impl Animation<T> + 'static) {
+        if !animation.is_over() {
+            self.animations.push(Box::new(animation));
+        }
+    }
+}
+
+impl<T> Animation<Option<T>> for AnimationStream<T> {
+    fn advance_frames(&mut self, frames: usize) {
+        for _ in 0..frames {
+            if let Some(animation) = self.animations.first_mut() {
+                animation.advance_frames(1);
+            } else {
+                break;
+            }
+
+            if self.animations[0].is_over() {
+                self.animations.remove(0);
+            }
+        }
+    }
+
+    fn current_frame(&self) -> Option<T> {
+        self.animations.first().map(|x| x.current_frame())
+    }
+
+    fn is_over(&self) -> bool {
+        self.animations.is_empty()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

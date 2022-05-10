@@ -279,13 +279,11 @@ pub struct Game {
     pub bombs_removed: usize,
     pub bombs_limit: usize,
     #[allow(clippy::type_complexity)]
-    pub animator: Option<
-        Rc<
-            RefCell<
-                FloatAnimator<
-                    (Vec<FloatingCell>, Vec<Sound>),
-                    dyn Animation<(Vec<FloatingCell>, Vec<Sound>)>,
-                >,
+    pub animator: Rc<
+        RefCell<
+            FloatAnimator<
+                Option<(Vec<FloatingCell>, Vec<Sound>)>,
+                AnimationStream<(Vec<FloatingCell>, Vec<Sound>)>,
             >,
         >,
     >,
@@ -308,7 +306,9 @@ impl Game {
             score: 0,
             bombs_removed: 0,
             bombs_limit: 999,
-            animator: None,
+            animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
+                AnimationStream::new(),
+            )))),
             particles: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
                 EndlessAnimator::new(Vec::new()),
             )))),
@@ -324,6 +324,39 @@ impl Game {
         row[bombs.0] = CellType::Bomb;
         row[bombs.1] = CellType::Bomb;
         self.board.feed(&row);
+
+        let feed_animation = self
+            .board
+            .cells
+            .iter()
+            .enumerate()
+            .flat_map(|(x, col)| {
+                col.iter().enumerate().flat_map(move |(y, cell)| {
+                    cell.map(|cell| {
+                        let Cell { id, cell_type } = cell;
+                        Box::new(CellAnimator::new(
+                            id,
+                            x as f64,
+                            ((y + 1) as f64, y as f64),
+                            (1., 1.),
+                            0,
+                            10,
+                            cell_type,
+                        )) as Box<dyn Animation<FloatingCell>>
+                    })
+                })
+            })
+            .collect();
+        let feed_sounds = if self.is_over() {
+            vec![(3, Sound::Feed), (10, Sound::Stuck)]
+        } else {
+            vec![(3, Sound::Feed)]
+        };
+
+        self.animator
+            .borrow_mut()
+            .animation
+            .push(Animator::new(feed_animation).zip(SoundPlayer::new(feed_sounds)));
     }
 
     pub fn is_over(&self) -> bool {
@@ -334,6 +367,126 @@ impl Game {
             .any(|x| x.first().cloned().flatten().is_some());
         let reached_limit = self.bombs_limit <= self.bombs_removed;
         is_filled || reached_limit
+    }
+
+    fn remove(&mut self, x: usize, y: usize) -> (usize, usize) {
+        let dists = self.board.remove(x, y);
+
+        if dists.is_empty() {
+            return (0, 0);
+        }
+
+        let mut particle_animator = self.particles.borrow_mut();
+        dists
+            .iter()
+            .map(|&(id, dist, x, y, cell_type)| {
+                let (color, expansion, duration) = match cell_type {
+                    CellType::Bomb => (PARTICLE_COLORS[dist % 7], (0., 3.), 40),
+                    CellType::Tile => ("#FFFFFF", (0., 1.), 10),
+                };
+                ParticleAnimator::new(
+                    id + 1_000_000,
+                    color,
+                    cell_type,
+                    x as f64,
+                    y as f64,
+                    expansion,
+                    (1., 0.),
+                    dist * 3,
+                    duration,
+                )
+            })
+            .for_each(|x| particle_animator.animation.push(x));
+
+        let remove_animation = self
+            .board
+            .cells
+            .iter()
+            .enumerate()
+            .flat_map(|(x, col)| {
+                col.iter().enumerate().flat_map(move |(y, cell)| {
+                    cell.map(|cell| {
+                        let Cell { cell_type, id } = cell;
+                        Box::new(CellAnimator::new(
+                            id,
+                            x as f64,
+                            (y as f64, y as f64),
+                            (1., 1.),
+                            0,
+                            1,
+                            cell_type,
+                        )) as Box<dyn Animation<FloatingCell>>
+                    })
+                })
+            })
+            .chain(dists.iter().map(|&(id, dist, x, y, cell_type)| {
+                Box::new(CellAnimator::new(
+                    id,
+                    x as f64,
+                    (y as f64, y as f64),
+                    (1., 0.),
+                    dist * 3,
+                    10,
+                    cell_type,
+                )) as Box<dyn Animation<FloatingCell>>
+            }))
+            .collect();
+        let remove_sounds = dists
+            .iter()
+            .flat_map(|&(_, dist, _, _, cell_type)| {
+                if cell_type == CellType::Bomb || dist == 0 {
+                    Some((dist * 3, Sound::Break))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        self.animator
+            .borrow_mut()
+            .animation
+            .push(Animator::new(remove_animation).zip(SoundPlayer::new(remove_sounds)));
+        let bombs = dists.iter().filter(|x| x.4 == CellType::Bomb).count();
+        (dists.len(), bombs)
+    }
+
+    fn apply_gravity(&mut self) {
+        let dists = self.board.apply_gravity();
+        let fall_animation = self
+            .board
+            .cells
+            .iter()
+            .enumerate()
+            .flat_map(|(x, col)| {
+                let dists = dists.clone();
+                col.iter().enumerate().flat_map(move |(y, cell)| {
+                    cell.map(|cell| {
+                        let Cell { id, cell_type } = cell;
+                        let dist = dists.get(&id).cloned().unwrap_or(0);
+                        Box::new(CellAnimator::new(
+                            id,
+                            x as f64,
+                            ((y - dist) as f64, y as f64),
+                            (1., 1.),
+                            0,
+                            dist * 5 + 1,
+                            cell_type,
+                        )) as Box<dyn Animation<FloatingCell>>
+                    })
+                })
+            })
+            .collect();
+        let mut dist_set = BTreeSet::new();
+        for (_, &dist) in dists.iter() {
+            dist_set.insert(dist);
+        }
+        let fall_sounds = dist_set
+            .iter()
+            .map(|dist| (dist * 5 + 1, Sound::Fall))
+            .collect();
+        self.animator
+            .borrow_mut()
+            .animation
+            .push(Animator::new(fall_animation).zip(SoundPlayer::new(fall_sounds)));
     }
 }
 
@@ -351,165 +504,25 @@ impl Reducible for Game {
                     return Rc::new(game);
                 }
 
-                let dists = self_cloned.board.remove(x, y);
-                if !dists.is_empty() {
-                    self_cloned.score += (dists.len() + 1) * dists.len() / 2;
+                let (removed_cells, removed_bombs) = self_cloned.remove(x, y);
+                if removed_cells > 0 {
+                    self_cloned.score += (removed_cells + 1) * removed_cells / 2;
                     self_cloned
                         .score_animator
                         .borrow_mut()
                         .animation
                         .set_target(self_cloned.score);
-                    let bombs = dists.iter().filter(|x| x.4 == CellType::Bomb).count();
-                    self_cloned.bombs_removed += bombs;
+                    self_cloned.bombs_removed += removed_bombs;
 
-                    {
-                        let mut particle_animator = self_cloned.particles.borrow_mut();
-                        dists
-                            .iter()
-                            .map(|&(id, dist, x, y, cell_type)| {
-                                let (color, expansion, duration) = match cell_type {
-                                    CellType::Bomb => (PARTICLE_COLORS[dist % 7], (0., 3.), 40),
-                                    CellType::Tile => ("#FFFFFF", (0., 1.), 10),
-                                };
-                                ParticleAnimator::new(
-                                    id + 1_000_000,
-                                    color,
-                                    cell_type,
-                                    x as f64,
-                                    y as f64,
-                                    expansion,
-                                    (1., 0.),
-                                    dist * 3,
-                                    duration,
-                                )
-                            })
-                            .for_each(|x| particle_animator.animation.push(x));
-                    }
-
-                    let remove_animation = self_cloned
-                        .board
-                        .cells
-                        .iter()
-                        .enumerate()
-                        .flat_map(|(x, col)| {
-                            col.iter().enumerate().flat_map(move |(y, cell)| {
-                                cell.map(|cell| {
-                                    let Cell { cell_type, id } = cell;
-                                    Box::new(CellAnimator::new(
-                                        id,
-                                        x as f64,
-                                        (y as f64, y as f64),
-                                        (1., 1.),
-                                        0,
-                                        1,
-                                        cell_type,
-                                    ))
-                                        as Box<dyn Animation<FloatingCell>>
-                                })
-                            })
-                        })
-                        .chain(dists.iter().map(|&(id, dist, x, y, cell_type)| {
-                            Box::new(CellAnimator::new(
-                                id,
-                                x as f64,
-                                (y as f64, y as f64),
-                                (1., 0.),
-                                dist * 3,
-                                10,
-                                cell_type,
-                            )) as Box<dyn Animation<FloatingCell>>
-                        }))
-                        .collect();
-                    let remove_sounds = dists
-                        .iter()
-                        .flat_map(|&(_, dist, _, _, cell_type)| {
-                            if cell_type == CellType::Bomb || dist == 0 {
-                                Some((dist * 3, Sound::Break))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    let dists = self_cloned.board.apply_gravity();
-                    let cells_animation = self_cloned
-                        .board
-                        .cells
-                        .iter()
-                        .enumerate()
-                        .flat_map(|(x, col)| {
-                            let dists = dists.clone();
-                            col.iter().enumerate().flat_map(move |(y, cell)| {
-                                cell.map(|cell| {
-                                    let Cell { id, cell_type } = cell;
-                                    let dist = dists.get(&id).cloned().unwrap_or(0);
-                                    Box::new(CellAnimator::new(
-                                        id,
-                                        x as f64,
-                                        ((y - dist) as f64, y as f64),
-                                        (1., 1.),
-                                        0,
-                                        dist * 5 + 1,
-                                        cell_type,
-                                    ))
-                                        as Box<dyn Animation<FloatingCell>>
-                                })
-                            })
-                        })
-                        .collect();
-                    let mut dist_set = BTreeSet::new();
-                    for (_, &dist) in dists.iter() {
-                        dist_set.insert(dist);
-                    }
-                    let fall_sounds = dist_set
-                        .iter()
-                        .map(|dist| (dist * 5 + 1, Sound::Fall))
-                        .collect();
+                    self_cloned.apply_gravity();
                     self_cloned.feed();
-                    let feed_animation = self_cloned
-                        .board
-                        .cells
-                        .iter()
-                        .enumerate()
-                        .flat_map(|(x, col)| {
-                            col.iter().enumerate().flat_map(move |(y, cell)| {
-                                cell.map(|cell| {
-                                    let Cell { id, cell_type } = cell;
-                                    Box::new(CellAnimator::new(
-                                        id,
-                                        x as f64,
-                                        ((y + 1) as f64, y as f64),
-                                        (1., 1.),
-                                        0,
-                                        10,
-                                        cell_type,
-                                    ))
-                                        as Box<dyn Animation<FloatingCell>>
-                                })
-                            })
-                        })
-                        .collect();
-                    let feed_sound = if self_cloned.is_over() {
-                        vec![(3, Sound::Feed), (10, Sound::Stuck)]
-                    } else {
-                        vec![(3, Sound::Feed)]
-                    };
-
-                    let animation = Animator::new(remove_animation)
-                        .zip(SoundPlayer::new(remove_sounds))
-                        .chain(Animator::new(cells_animation).zip(SoundPlayer::new(fall_sounds)))
-                        .chain(Animator::new(feed_animation).zip(SoundPlayer::new(feed_sound)));
-                    self_cloned.animator = Some(Rc::new(RefCell::new(FloatAnimator::new(
-                        Box::new(animation),
-                    ))));
                 }
             }
             GameAction::Feed => {
                 self_cloned.feed();
             }
             GameAction::Animate => {
-                if let Some(animator) = &self.animator {
-                    animator.borrow_mut().animate();
-                }
+                self.animator.borrow_mut().animate();
                 self.particles.borrow_mut().animate();
                 self.score_animator.borrow_mut().animate();
             }

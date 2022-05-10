@@ -2,7 +2,10 @@ use super::board::Board;
 use crate::game::{self, *};
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering::Relaxed},
+    Arc, Mutex,
+};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use yew::prelude::*;
@@ -62,6 +65,7 @@ struct LazyAudio {
     context: Rc<web_sys::AudioContext>,
     src: String,
     audio: Arc<Mutex<Option<Audio>>>,
+    is_loaded: AtomicBool,
 }
 
 async fn resolve_promise<T: From<JsValue>>(promise: js_sys::Promise) -> T {
@@ -77,6 +81,7 @@ impl LazyAudio {
             context,
             src: src.to_string(),
             audio: Arc::new(Mutex::new(None)),
+            is_loaded: AtomicBool::new(false),
         }
     }
 
@@ -91,24 +96,14 @@ impl LazyAudio {
                 resolve_promise(self.context.decode_audio_data(&array_buffer).unwrap()).await;
             *audio = Some(Audio::new(self.context.clone(), buffer));
         }
-    }
 
-    async fn play_force(&self) {
-        let audio = self.audio.lock().unwrap();
-        audio.as_ref().unwrap().play();
+        self.is_loaded.store(true, Relaxed);
     }
 
     async fn play(&self) {
-        let is_loaded = {
+        if self.is_loaded.load(Relaxed) {
             let audio = self.audio.lock().unwrap();
-            audio.is_some()
-        };
-
-        if is_loaded {
-            self.play_force().await;
-        } else {
-            self.load().await;
-            self.play_force().await;
+            audio.as_ref().unwrap().play();
         }
     }
 }
@@ -192,15 +187,9 @@ pub fn game_component(props: &Props) -> Html {
         }
     });
 
-    let (floating_cells, sounds) = if let Some(animator) = &game.animator {
-        let animator = animator.borrow();
-
-        if !animator.is_over() {
-            let (frame, sound) = animator.frame();
-            (Some(frame), sound)
-        } else {
-            (None, Vec::new())
-        }
+    let frame = game.animator.borrow().frame();
+    let (floating_cells, sounds) = if let Some((frame, sound)) = frame {
+        (Some(frame), sound)
     } else {
         (None, Vec::new())
     };
