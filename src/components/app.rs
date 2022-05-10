@@ -128,16 +128,17 @@ impl LazyAudio {
 
 #[function_component(App)]
 pub fn app() -> Html {
+    let use_sound = |src: &str, context: &Rc<web_sys::AudioContext>| {
+        let cloned_context = context.clone();
+        use_ref(|| LazyAudio::new(src, cloned_context))
+    };
+
     let game = use_reducer(Game::new);
     let audio_context = use_ref(|| web_sys::AudioContext::new().unwrap());
-    let cloned_context = audio_context.clone();
-    let break_sound = use_ref(|| LazyAudio::new("/sound/break.wav", cloned_context));
-    let cloned_context = audio_context.clone();
-    let fall_sound = use_ref(|| LazyAudio::new("/sound/fall.wav", cloned_context));
-    let cloned_context = audio_context.clone();
-    let feed_sound = use_ref(|| LazyAudio::new("/sound/feed.wav", cloned_context));
-    let cloned_context = audio_context.clone();
-    let stuck_sound = use_ref(|| LazyAudio::new("/sound/stuck.wav", cloned_context));
+    let break_sound = use_sound("/sound/break.wav", &audio_context);
+    let fall_sound = use_sound("/sound/fall.wav", &audio_context);
+    let feed_sound = use_sound("/sound/feed.wav", &audio_context);
+    let stuck_sound = use_sound("/sound/stuck.wav", &audio_context);
 
     let cloned_game = game.clone();
 
