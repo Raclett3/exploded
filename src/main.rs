@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 mod animation;
 mod board;
 mod components;

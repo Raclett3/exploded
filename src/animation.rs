@@ -5,13 +5,6 @@ pub trait Animation<T> {
     fn current_frame(&self) -> T;
     fn is_over(&self) -> bool;
 
-    fn chain<A: Animation<T>>(self, right: A) -> AnimationChain<T, Self, A>
-    where
-        Self: Sized,
-    {
-        AnimationChain::new(self, right)
-    }
-
     fn zip<U, A: Animation<U>>(self, right: A) -> AnimationZip<T, U, Self, A>
     where
         Self: Sized,
@@ -65,46 +58,6 @@ impl<T> Animation<Vec<T>> for Animator<T> {
     }
 }
 
-pub struct AnimationChain<T, A1: Animation<T>, A2: Animation<T>> {
-    animation_1: A1,
-    animation_2: A2,
-    phantom: PhantomData<T>,
-}
-
-impl<T, A1: Animation<T>, A2: Animation<T>> AnimationChain<T, A1, A2> {
-    fn new(animation_1: A1, animation_2: A2) -> Self {
-        AnimationChain {
-            animation_1,
-            animation_2,
-            phantom: PhantomData,
-        }
-    }
-}
-
-impl<T, A1: Animation<T>, A2: Animation<T>> Animation<T> for AnimationChain<T, A1, A2> {
-    fn advance_frames(&mut self, frames: usize) {
-        for _ in 0..frames {
-            if self.animation_1.is_over() {
-                self.animation_2.advance_frames(1)
-            } else {
-                self.animation_1.advance_frames(1)
-            }
-        }
-    }
-
-    fn current_frame(&self) -> T {
-        if self.animation_1.is_over() {
-            self.animation_2.current_frame()
-        } else {
-            self.animation_1.current_frame()
-        }
-    }
-
-    fn is_over(&self) -> bool {
-        self.animation_1.is_over() && self.animation_2.is_over()
-    }
-}
-
 pub struct FloatAnimator<T, A: Animation<T> + ?Sized> {
     begin_at: f64,
     elapsed_frames: usize,
@@ -137,10 +90,6 @@ impl<T, A: Animation<T> + ?Sized> FloatAnimator<T, A> {
 
     pub fn frame(&self) -> T {
         self.animation.current_frame()
-    }
-
-    pub fn is_over(&self) -> bool {
-        self.animation.is_over()
     }
 }
 
