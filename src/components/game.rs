@@ -129,7 +129,16 @@ pub fn game_component(props: &Props) -> Html {
     } = props.clone();
     let use_sound = |src: &str, context: &Rc<web_sys::AudioContext>| {
         let cloned_context = context.clone();
-        use_ref(|| LazyAudio::new(src, cloned_context))
+        let sound = use_ref(|| LazyAudio::new(src, cloned_context));
+        let cloned_sound = sound.clone();
+        use_effect_with_deps(
+            move |_| {
+                wasm_bindgen_futures::spawn_local(async move { cloned_sound.load().await });
+                || ()
+            },
+            (),
+        );
+        sound
     };
 
     let game = use_reducer(game::Game::new);
@@ -141,14 +150,8 @@ pub fn game_component(props: &Props) -> Html {
 
     let cloned_game = game.clone();
 
-    let cloned_break = break_sound.clone();
-    let cloned_fall = fall_sound.clone();
-    let cloned_feed = feed_sound.clone();
     use_effect_with_deps(
         move |_| {
-            wasm_bindgen_futures::spawn_local(async move { cloned_break.load().await });
-            wasm_bindgen_futures::spawn_local(async move { cloned_fall.load().await });
-            wasm_bindgen_futures::spawn_local(async move { cloned_feed.load().await });
             game.dispatch(GameAction::Feed);
             raf_loop(move || game.dispatch(GameAction::Animate));
             || ()
