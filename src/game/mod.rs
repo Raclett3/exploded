@@ -334,9 +334,13 @@ impl Reducible for Game {
         match action {
             GameAction::Remove(x, y) => {
                 if self_cloned.is_over() {
-                    let mut game = Game::new();
-                    game.board.feed();
-                    return Rc::new(game);
+                    if !self_cloned.board.is_animating() {
+                        let mut game = Game::new();
+                        game.board.feed();
+                        return Rc::new(game);
+                    } else {
+                        return self_cloned.into();
+                    }
                 }
 
                 let (removed_cells, removed_bombs) = self_cloned.board.remove(x, y);
