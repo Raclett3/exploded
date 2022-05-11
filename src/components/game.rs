@@ -215,20 +215,39 @@ pub fn game_component(props: &Props) -> Html {
         (onmousedown, Callback::from(|_| ()))
     };
 
-    let game = &*game;
+    let font_size = cell_size * 0.5;
+    let font_size_large = font_size * 2.;
+
+    let width = (WIDTH as f64 * cell_size).to_string();
+    let height = (HEIGHT as f64 * cell_size).to_string();
+    let center_x = (WIDTH as f64 * cell_size / 2.).to_string();
+    let center_y = (HEIGHT as f64 * cell_size / 2.).to_string();
+    let upper_y = (HEIGHT as f64 * cell_size / 3.).to_string();
+    let lower_y = (HEIGHT as f64 * cell_size / 3. * 2.).to_string();
 
     html! {
         <div class="game" style={format!("top: {}px; left: {}px;", top, left)} onmousedown={onmousedown} ontouchstart={ontouchstart}>
-            <Board<WIDTH, HEIGHT>
-                floating_cells={floating_cells}
-                is_animating={game.board.is_animating()}
-                particles={particles}
-                score={score}
-                is_game_over={game.is_over()}
-                cell_size={cell_size}
-                numerator={game.bombs_removed.min(game.bombs_limit)}
-                denominator={game.bombs_limit}
-                rank={rank} />
+            <svg width={width.clone()} height={height.clone()}>
+                <text x={center_x.clone()} y={center_y.clone()} class="numerator" font-size={format!("{font_size_large}px")}>
+                    {format!("{:03}", game.bombs_removed.min(game.bombs_limit))}
+                </text>
+                <text x={center_x.clone()} y={center_y} class="denominator" font-size={format!("{font_size_large}px")}>
+                    {format!("{:03}", game.bombs_limit)}
+                </text>
+                <Board<WIDTH, HEIGHT>
+                    floating_cells={floating_cells}
+                    particles={particles}
+                    cell_size={cell_size} />
+                if game.is_over() && !game.board.is_animating() {
+                    <rect x="0" y="0" width={width} height={height} fill="rgba(0, 0, 0, 0.5)" />
+                    <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"GAME OVER"}</text>
+                    <text x={center_x} y={lower_y} class="text-center" dominant-baseline="baseline">
+                        <tspan font-size={format!("{font_size}px")}>{"RANK:"}</tspan>
+                        <tspan font-size={format!("{font_size_large}px")}>{rank}</tspan>
+                    </text>
+                }
+                <text x="0" y="0" class="text" font-size={format!("{font_size}px")}>{format!("SCORE: {}", score)}</text>
+            </svg>
         </div>
     }
 }
