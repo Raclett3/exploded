@@ -54,7 +54,6 @@ impl BombGenerator {
 #[derive(Clone)]
 pub struct AnimatedBoard {
     pub board: Board<WIDTH, HEIGHT>,
-    generator: BombGenerator,
     #[allow(clippy::type_complexity)]
     pub animator: Rc<
         RefCell<
@@ -72,7 +71,6 @@ impl AnimatedBoard {
     fn new() -> Self {
         AnimatedBoard {
             board: Board::new(),
-            generator: BombGenerator::new(),
             animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
                 AnimationStream::new(),
             )))),
@@ -82,12 +80,8 @@ impl AnimatedBoard {
         }
     }
 
-    fn feed(&mut self) {
-        let bombs = self.generator.next();
-        let mut row = [CellType::Tile; WIDTH];
-        row[bombs.0] = CellType::Bomb;
-        row[bombs.1] = CellType::Bomb;
-        self.board.feed(&row);
+    fn feed(&mut self, row: &[CellType; WIDTH]) {
+        self.board.feed(row);
 
         let feed_animation = self
             .board
@@ -294,6 +288,7 @@ impl AnimatedBoard {
 #[derive(Clone)]
 pub struct Game {
     pub board: AnimatedBoard,
+    generator: BombGenerator,
     pub score: usize,
     pub bombs_removed: usize,
     pub bombs_limit: usize,
@@ -310,6 +305,7 @@ impl Game {
     pub fn new() -> Self {
         Game {
             board: AnimatedBoard::new(),
+            generator: BombGenerator::new(),
             score: 0,
             bombs_removed: 0,
             bombs_limit: 999,
@@ -322,6 +318,14 @@ impl Game {
     pub fn is_over(&self) -> bool {
         let reached_limit = self.bombs_limit <= self.bombs_removed;
         self.board.is_filled() || reached_limit
+    }
+
+    pub fn next_row(&mut self) -> [CellType; WIDTH] {
+        let bombs = self.generator.next();
+        let mut row = [CellType::Tile; WIDTH];
+        row[bombs.0] = CellType::Bomb;
+        row[bombs.1] = CellType::Bomb;
+        row
     }
 }
 
@@ -336,7 +340,8 @@ impl Reducible for Game {
                 if self_cloned.is_over() {
                     if !self_cloned.board.is_animating() {
                         let mut game = Game::new();
-                        game.board.feed();
+                        let row = game.next_row();
+                        game.board.feed(&row);
                         return Rc::new(game);
                     } else {
                         return self_cloned.into();
@@ -354,11 +359,13 @@ impl Reducible for Game {
                     self_cloned.bombs_removed += removed_bombs;
 
                     self_cloned.board.apply_gravity();
-                    self_cloned.board.feed();
+                    let row = self_cloned.next_row();
+                    self_cloned.board.feed(&row);
                 }
             }
             GameAction::Feed => {
-                self_cloned.board.feed();
+                let row = self_cloned.next_row();
+                self_cloned.board.feed(&row);
             }
             GameAction::Animate => {
                 self.board.animate();
