@@ -18,32 +18,32 @@ const PARTICLE_COLORS: [&str; 7] = [
 ];
 
 #[derive(Clone)]
-struct BombGenerator {
-    shuffled: Vec<(usize, usize)>,
+struct BombGenerator<T> {
+    shuffled: Vec<T>,
     rng: StdRng,
+    generator: fn() -> Vec<T>,
 }
 
-impl BombGenerator {
-    fn new() -> Self {
+impl<T> BombGenerator<T> {
+    fn new(generator: fn() -> Vec<T>) -> Self {
         let random = js_sys::Math::random();
         let rng = StdRng::seed_from_u64(u64::from_be_bytes(random.to_be_bytes()));
         let mut generator = BombGenerator {
             shuffled: Vec::new(),
             rng,
+            generator,
         };
         generator.shuffle();
         generator
     }
 
     fn shuffle(&mut self) {
-        let mut shuffled = (0..WIDTH)
-            .flat_map(|first| (first + 1..WIDTH).map(move |second| (first, second)))
-            .collect::<Vec<_>>();
+        let mut shuffled = (self.generator)();
         shuffled.shuffle(&mut self.rng);
         self.shuffled = shuffled;
     }
 
-    fn next(&mut self) -> (usize, usize) {
+    fn next(&mut self) -> T {
         self.shuffled.pop().unwrap_or_else(|| {
             self.shuffle();
             self.next()
@@ -285,10 +285,16 @@ impl AnimatedBoard {
     }
 }
 
+fn generate_x_pairs() -> Vec<(usize, usize)> {
+    (0..WIDTH)
+        .flat_map(|first| (first + 1..WIDTH).map(move |second| (first, second)))
+        .collect()
+}
+
 #[derive(Clone)]
 pub struct Game {
     pub board: AnimatedBoard,
-    generator: BombGenerator,
+    generator: BombGenerator<(usize, usize)>,
     pub score: usize,
     pub bombs_removed: usize,
     pub bombs_limit: usize,
@@ -305,7 +311,7 @@ impl Game {
     pub fn new() -> Self {
         Game {
             board: AnimatedBoard::new(),
-            generator: BombGenerator::new(),
+            generator: BombGenerator::new(generate_x_pairs),
             score: 0,
             bombs_removed: 0,
             bombs_limit: 999,
