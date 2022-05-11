@@ -187,12 +187,7 @@ pub fn game_component(props: &Props) -> Html {
         }
     });
 
-    let frame = game.animator.borrow().frame();
-    let (floating_cells, sounds) = if let Some((frame, sound)) = frame {
-        (Some(frame), sound)
-    } else {
-        (None, Vec::new())
-    };
+    let (floating_cells, sounds) = game.board.frame();
 
     if let Some(sound) = sounds.first() {
         web_sys::console::log_1(&"sound".to_owned().into());
@@ -206,7 +201,7 @@ pub fn game_component(props: &Props) -> Html {
         wasm_bindgen_futures::spawn_local(async move { sound.play().await });
     }
 
-    let particles = game.particles.borrow().frame();
+    let particles = game.board.particles();
     let score = game.score_animator.borrow().frame();
     let rank_index = RANKS
         .binary_search_by_key(&(game.score + 1), |x| x.0)
@@ -225,8 +220,8 @@ pub fn game_component(props: &Props) -> Html {
     html! {
         <div class="game" style={format!("top: {}px; left: {}px;", top, left)} onmousedown={onmousedown} ontouchstart={ontouchstart}>
             <Board<WIDTH, HEIGHT>
-                board={game.board.cells}
                 floating_cells={floating_cells}
+                is_animating={game.board.is_animating()}
                 particles={particles}
                 score={score}
                 is_game_over={game.is_over()}

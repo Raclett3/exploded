@@ -1,7 +1,7 @@
 mod animation;
 
 use crate::animation::*;
-use crate::board::{Board as GameBoard, Cell, CellType};
+use crate::board::{Board, Cell, CellType};
 use rand::prelude::*;
 use std::cell::RefCell;
 use std::collections::BTreeSet;
@@ -52,12 +52,9 @@ impl BombGenerator {
 }
 
 #[derive(Clone)]
-pub struct Game {
-    pub board: GameBoard<WIDTH, HEIGHT>,
+pub struct AnimatedBoard {
+    pub board: Board<WIDTH, HEIGHT>,
     generator: BombGenerator,
-    pub score: usize,
-    pub bombs_removed: usize,
-    pub bombs_limit: usize,
     #[allow(clippy::type_complexity)]
     pub animator: Rc<
         RefCell<
@@ -69,31 +66,18 @@ pub struct Game {
     >,
     pub particles:
         Rc<RefCell<FloatAnimator<Vec<FloatingParticle>, EndlessAnimator<FloatingParticle>>>>,
-    pub score_animator: Rc<RefCell<FloatAnimator<usize, NumberAnimator>>>,
 }
 
-pub enum GameAction {
-    Feed,
-    Remove(usize, usize),
-    Animate,
-}
-
-impl Game {
-    pub fn new() -> Self {
-        Game {
-            board: GameBoard::new(),
+impl AnimatedBoard {
+    fn new() -> Self {
+        AnimatedBoard {
+            board: Board::new(),
             generator: BombGenerator::new(),
-            score: 0,
-            bombs_removed: 0,
-            bombs_limit: 999,
             animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
                 AnimationStream::new(),
             )))),
             particles: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
                 EndlessAnimator::new(Vec::new()),
-            )))),
-            score_animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
-                NumberAnimator::new(0),
             )))),
         }
     }
@@ -127,7 +111,7 @@ impl Game {
                 })
             })
             .collect();
-        let feed_sounds = if self.is_over() {
+        let feed_sounds = if self.is_filled() {
             vec![(3, Sound::Feed), (10, Sound::Stuck)]
         } else {
             vec![(3, Sound::Feed)]
@@ -137,16 +121,6 @@ impl Game {
             .borrow_mut()
             .animation
             .push(Animator::new(feed_animation).zip(SoundPlayer::new(feed_sounds)));
-    }
-
-    pub fn is_over(&self) -> bool {
-        let is_filled = self
-            .board
-            .cells
-            .iter()
-            .any(|x| x.first().cloned().flatten().is_some());
-        let reached_limit = self.bombs_limit <= self.bombs_removed;
-        is_filled || reached_limit
     }
 
     fn remove(&mut self, x: usize, y: usize) -> (usize, usize) {
@@ -268,6 +242,87 @@ impl Game {
             .animation
             .push(Animator::new(fall_animation).zip(SoundPlayer::new(fall_sounds)));
     }
+
+    fn is_filled(&self) -> bool {
+        self.board
+            .cells
+            .iter()
+            .any(|x| x.first().cloned().flatten().is_some())
+    }
+
+    fn animate(&self) {
+        self.animator.borrow_mut().animate();
+        self.particles.borrow_mut().animate();
+    }
+
+    pub fn frame(&self) -> (Vec<FloatingCell>, Vec<Sound>) {
+        self.animator.borrow().frame().unwrap_or_else(|| {
+            let cells = self
+                .board
+                .cells
+                .iter()
+                .enumerate()
+                .flat_map(|(x, column)| {
+                    column.iter().enumerate().flat_map(move |(y, cell)| {
+                        cell.map(|cell| {
+                            let (x, y) = (x as f64, y as f64);
+                            let Cell { id, cell_type } = cell;
+                            FloatingCell {
+                                x,
+                                y,
+                                id,
+                                cell_type,
+                                opacity: 1.,
+                            }
+                        })
+                    })
+                })
+                .collect();
+            (cells, Vec::new())
+        })
+    }
+
+    pub fn particles(&self) -> Vec<FloatingParticle> {
+        self.particles.borrow().frame()
+    }
+
+    pub fn is_animating(&self) -> bool {
+        !self.animator.borrow().animation.is_over()
+    }
+}
+
+#[derive(Clone)]
+pub struct Game {
+    pub board: AnimatedBoard,
+    pub score: usize,
+    pub bombs_removed: usize,
+    pub bombs_limit: usize,
+    pub score_animator: Rc<RefCell<FloatAnimator<usize, NumberAnimator>>>,
+}
+
+pub enum GameAction {
+    Feed,
+    Remove(usize, usize),
+    Animate,
+}
+
+impl Game {
+    pub fn new() -> Self {
+        Game {
+            board: AnimatedBoard::new(),
+            score: 0,
+            bombs_removed: 0,
+            bombs_limit: 999,
+            score_animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
+                NumberAnimator::new(0),
+            )))),
+        }
+    }
+
+    pub fn is_over(&self) -> bool {
+        let reached_limit = self.bombs_limit <= self.bombs_removed;
+        self.board.is_filled() || reached_limit
+    }
 }
 
 impl Reducible for Game {
@@ -280,11 +335,11 @@ impl Reducible for Game {
             GameAction::Remove(x, y) => {
                 if self_cloned.is_over() {
                     let mut game = Game::new();
-                    game.feed();
+                    game.board.feed();
                     return Rc::new(game);
                 }
 
-                let (removed_cells, removed_bombs) = self_cloned.remove(x, y);
+                let (removed_cells, removed_bombs) = self_cloned.board.remove(x, y);
                 if removed_cells > 0 {
                     self_cloned.score += (removed_cells + 1) * removed_cells / 2;
                     self_cloned
@@ -294,16 +349,15 @@ impl Reducible for Game {
                         .set_target(self_cloned.score);
                     self_cloned.bombs_removed += removed_bombs;
 
-                    self_cloned.apply_gravity();
-                    self_cloned.feed();
+                    self_cloned.board.apply_gravity();
+                    self_cloned.board.feed();
                 }
             }
             GameAction::Feed => {
-                self_cloned.feed();
+                self_cloned.board.feed();
             }
             GameAction::Animate => {
-                self.animator.borrow_mut().animate();
-                self.particles.borrow_mut().animate();
+                self.board.animate();
                 self.score_animator.borrow_mut().animate();
             }
         }
