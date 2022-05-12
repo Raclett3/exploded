@@ -174,8 +174,6 @@ pub fn game_component(props: &Props) -> Html {
         let touches = event.target_touches();
         for i in 0..touches.length() {
             if let Some(event) = touches.item(i) {
-                web_sys::console::log_1(&wasm_bindgen::JsValue::from(event.client_x()));
-                web_sys::console::log_1(&wasm_bindgen::JsValue::from(event.client_y()));
                 let x = ((event.client_x() as f64 - left) / cell_size)
                     .max(0.)
                     .min(WIDTH as f64 - 1.) as usize;

@@ -451,7 +451,6 @@ impl SpreadBombGenerator {
 
     fn next_double(&mut self) -> (usize, usize) {
         let mut possibility = self.possibility();
-        web_sys::console::log_1(&format!("{:?}", possibility).into());
 
         let mut sum = possibility.iter().sum::<usize>();
         let r = self.rng.gen_range(0..sum);
@@ -481,7 +480,6 @@ impl SpreadBombGenerator {
 
     fn next_single(&mut self) -> usize {
         let possibility = self.possibility();
-        web_sys::console::log_1(&format!("{:?}", possibility).into());
 
         let sum = possibility.iter().sum::<usize>();
         let r = self.rng.gen_range(0..sum);
