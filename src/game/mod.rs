@@ -498,11 +498,11 @@ impl SpreadBombGenerator {
 pub struct Grade {
     grade: &'static str,
     decay_rate: usize,
-    required_score: usize,
+    required_score: isize,
 }
 
 impl Grade {
-    const fn new(grade: &'static str, decay_rate: usize, required_score: usize) -> Grade {
+    const fn new(grade: &'static str, decay_rate: usize, required_score: isize) -> Grade {
         Grade {
             grade,
             decay_rate,
@@ -511,7 +511,7 @@ impl Grade {
     }
 }
 
-static RANKS: [Grade; 18] = [
+static RANKS: [Grade; 19] = [
     Grade::new("C3", 120, 100),
     Grade::new("C2", 90, 100),
     Grade::new("C1", 90, 150),
@@ -521,19 +521,20 @@ static RANKS: [Grade; 18] = [
     Grade::new("A3", 60, 100),
     Grade::new("A2", 60, 100),
     Grade::new("A1", 60, 200),
-    Grade::new("S1", 50, 150),
-    Grade::new("S2", 45, 150),
-    Grade::new("S3", 40, 150),
+    Grade::new("S1", 50, 100),
+    Grade::new("S2", 45, 100),
+    Grade::new("S3", 40, 100),
     Grade::new("S4", 35, 150),
     Grade::new("S5", 30, 150),
-    Grade::new("S6", 25, 200),
+    Grade::new("S6", 25, 150),
     Grade::new("S7", 20, 200),
-    Grade::new("S8", 15, 300),
-    Grade::new("S9", 15, 1000000),
+    Grade::new("S8", 15, 200),
+    Grade::new("S9", 10, 250),
+    Grade::new("master", 10, 1000000),
 ];
 
 pub struct GradeManager {
-    score: usize,
+    score: isize,
     current_grade: usize,
     max_chain_per_section: [usize; 10],
     elapsed_frames: f64,
@@ -552,20 +553,18 @@ impl GradeManager {
     }
 
     fn decay(&mut self) {
-        if self.score == 0 {
-            self.elapsed_frames = 0.;
-            self.last_timestamp = js_sys::Date::now();
-            return;
-        }
-
         let now = js_sys::Date::now();
         self.elapsed_frames += (now - self.last_timestamp) / 1000. * 60.;
         self.last_timestamp = now;
 
         let decay_rate = self.current_grade().decay_rate;
         let decay = self.elapsed_frames as usize / decay_rate;
-        self.score = self.score.saturating_sub(decay);
+        self.score -= decay as isize;
         self.elapsed_frames -= (decay * decay_rate) as f64;
+
+        if self.current_grade == 0 && self.score < 0 {
+            self.score = 0;
+        }
     }
 
     fn add(&mut self, section: usize, bombs: usize) {
@@ -573,9 +572,13 @@ impl GradeManager {
             (0..).take_while(|x| x * x <= n).last().unwrap()
         }
 
+        if self.current_grade().grade == "S9" && section == 9 {
+            return;
+        }
+
         let score = sqrt(bombs * bombs * bombs) * (section / 2 + 1);
 
-        self.score += score;
+        self.score += score as isize;
         self.max_chain_per_section[section] = self.max_chain_per_section[section].max(bombs);
 
         while self.score >= self.current_grade().required_score {
@@ -587,6 +590,11 @@ impl GradeManager {
     fn current_grade(&self) -> &'static Grade {
         &RANKS[self.current_grade]
     }
+
+    fn fulfills_gm_condition(&self) -> bool {
+        let section_conditions = self.max_chain_per_section[0..=8].iter().all(|&x| x >= 5);
+        self.current_grade().grade == "master" && section_conditions
+    }
 }
 
 #[derive(Clone)]
@@ -594,6 +602,7 @@ pub struct GameHard {
     pub board: AnimatedBoard,
     generator: SpreadBombGenerator,
     grade: Rc<RefCell<GradeManager>>,
+    fulfills_gm_condition: bool,
     pub until_single: usize,
     pub section: usize,
     pub level: usize,
@@ -606,6 +615,7 @@ impl GameHard {
             board: AnimatedBoard::new(),
             generator: SpreadBombGenerator::new(),
             grade: Rc::new(RefCell::new(GradeManager::new())),
+            fulfills_gm_condition: false,
             until_single: 999,
             section: 0,
             level: 0,
@@ -640,10 +650,14 @@ impl GameHard {
     }
 
     pub fn grade(&self) -> &'static str {
-        self.grade.borrow().current_grade().grade
+        if self.fulfills_gm_condition && self.level >= self.level_limit {
+            "Grandmaster"
+        } else {
+            self.grade.borrow().current_grade().grade
+        }
     }
 
-    pub fn grade_condition(&self) -> (usize, usize) {
+    pub fn grade_condition(&self) -> (isize, isize) {
         let grade = self.grade.borrow();
         (grade.score, grade.current_grade().required_score)
     }
@@ -671,11 +685,16 @@ impl Reducible for GameHard {
                 let (removed_cells, removed_bombs) = game.board.remove(x, y);
                 if removed_cells > 0 {
                     game.level += removed_bombs;
-                    if game.section < game.level / 100 {
-                        game.section = (game.level / 100).min(9);
+                    let section = (game.level / 100).min(9);
+                    if game.section < section {
+                        game.section = section;
                         game.until_single = SINGLE_FREQUENCY[game.section];
                         if game.section == 9 {
-                            game.board.visible = Invisible;
+                            game.fulfills_gm_condition =
+                                game.grade.borrow().fulfills_gm_condition();
+                            if game.fulfills_gm_condition {
+                                game.board.visible = Invisible;
+                            }
                         }
                     }
 
