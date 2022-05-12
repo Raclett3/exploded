@@ -62,6 +62,30 @@ enum VisibleState {
 
 use VisibleState::*;
 
+pub struct SingleAnimation<T> {
+    target: RefCell<Vec<T>>,
+}
+
+impl<T> SingleAnimation<T> {
+    pub fn new(target: Vec<T>) -> Self {
+        SingleAnimation {
+            target: RefCell::new(target),
+        }
+    }
+}
+
+impl<T> Animation<Vec<T>> for SingleAnimation<T> {
+    fn current_frame(&self) -> Vec<T> {
+        std::mem::take(self.target.borrow_mut().as_mut())
+    }
+
+    fn advance_frames(&mut self, _frames: usize) {}
+
+    fn is_over(&self) -> bool {
+        self.target.borrow().is_empty()
+    }
+}
+
 #[derive(Clone)]
 pub struct AnimatedBoard {
     pub board: Board<WIDTH, HEIGHT>,
@@ -70,8 +94,8 @@ pub struct AnimatedBoard {
     pub animator: Rc<
         RefCell<
             FloatAnimator<
-                Option<(Vec<FloatingCell>, Vec<Sound>)>,
-                AnimationStream<(Vec<FloatingCell>, Vec<Sound>)>,
+                Option<((Vec<FloatingCell>, Vec<Sound>), Vec<ParticleAnimator>)>,
+                AnimationStream<((Vec<FloatingCell>, Vec<Sound>), Vec<ParticleAnimator>)>,
             >,
         >,
     >,
@@ -106,16 +130,18 @@ impl AnimatedBoard {
                 col.iter().enumerate().flat_map(move |(y, cell)| {
                     cell.map(|cell| {
                         let Cell { id, cell_type } = cell;
-                        let opacity = if !visible && cell_type == CellType::Tile {
-                            0.
+                        let opacity = if visible || y == HEIGHT - 1 {
+                            (1., 1.)
+                        } else if y == HEIGHT - 2 {
+                            (1., 0.)
                         } else {
-                            1.
+                            (0., 0.)
                         };
                         Box::new(CellAnimator::new(
                             id,
                             x as f64,
                             ((y + 1) as f64, y as f64),
-                            (opacity, opacity),
+                            opacity,
                             0,
                             10,
                             cell_type,
@@ -130,10 +156,11 @@ impl AnimatedBoard {
             vec![(3, Sound::Feed)]
         };
 
-        self.animator
-            .borrow_mut()
-            .animation
-            .push(Animator::new(feed_animation).zip(SoundPlayer::new(feed_sounds)));
+        self.animator.borrow_mut().animation.push(
+            Animator::new(feed_animation)
+                .zip(SoundPlayer::new(feed_sounds))
+                .zip(SingleAnimation::new(Vec::new())),
+        );
     }
 
     fn remove(&mut self, x: usize, y: usize) -> (usize, usize) {
@@ -145,8 +172,7 @@ impl AnimatedBoard {
 
         let visible = self.visible == Visible;
 
-        let mut particle_animator = self.particles.borrow_mut();
-        dists
+        let particles = dists
             .iter()
             .map(|&(id, dist, x, y, cell_type)| {
                 let (color, expansion, duration) = match cell_type {
@@ -165,7 +191,7 @@ impl AnimatedBoard {
                     duration,
                 )
             })
-            .for_each(|x| particle_animator.animation.push(x));
+            .collect();
 
         let remove_animation = self
             .board
@@ -176,11 +202,7 @@ impl AnimatedBoard {
                 col.iter().enumerate().flat_map(move |(y, cell)| {
                     cell.map(|cell| {
                         let Cell { cell_type, id } = cell;
-                        let opacity = if !visible && cell_type == CellType::Tile {
-                            0.
-                        } else {
-                            1.
-                        };
+                        let opacity = if !visible && y != HEIGHT - 1 { 0. } else { 1. };
                         Box::new(CellAnimator::new(
                             id,
                             x as f64,
@@ -217,10 +239,11 @@ impl AnimatedBoard {
             .collect::<Vec<_>>();
         remove_sounds.sort_by_key(|x| x.0);
         remove_sounds.dedup_by_key(|x| x.0);
-        self.animator
-            .borrow_mut()
-            .animation
-            .push(Animator::new(remove_animation).zip(SoundPlayer::new(remove_sounds)));
+        self.animator.borrow_mut().animation.push(
+            Animator::new(remove_animation)
+                .zip(SoundPlayer::new(remove_sounds))
+                .zip(SingleAnimation::new(particles)),
+        );
         let bombs = dists.iter().filter(|x| x.4 == CellType::Bomb).count();
         (dists.len(), bombs)
     }
@@ -239,16 +262,18 @@ impl AnimatedBoard {
                     cell.map(|cell| {
                         let Cell { id, cell_type } = cell;
                         let dist = dists.get(&id).cloned().unwrap_or(0);
-                        let opacity = if !visible && cell_type == CellType::Tile {
-                            0.
+                        let opacity = if visible || y - dist == HEIGHT - 1 {
+                            (1., 1.)
+                        } else if y == HEIGHT - 1 {
+                            (0., 1.)
                         } else {
-                            1.
+                            (0., 0.)
                         };
                         Box::new(CellAnimator::new(
                             id,
                             x as f64,
                             ((y - dist) as f64, y as f64),
-                            (opacity, opacity),
+                            opacity,
                             0,
                             dist * 5 + 1,
                             cell_type,
@@ -265,10 +290,72 @@ impl AnimatedBoard {
             .iter()
             .map(|dist| (dist * 5 + 1, Sound::Fall))
             .collect();
-        self.animator
-            .borrow_mut()
-            .animation
-            .push(Animator::new(fall_animation).zip(SoundPlayer::new(fall_sounds)));
+        self.animator.borrow_mut().animation.push(
+            Animator::new(fall_animation)
+                .zip(SoundPlayer::new(fall_sounds))
+                .zip(SingleAnimation::new(Vec::new())),
+        );
+    }
+
+    pub fn reset(&mut self) {
+        let particles = self
+            .board
+            .cells
+            .iter()
+            .enumerate()
+            .flat_map(|(x, col)| {
+                col.iter().enumerate().flat_map(move |(y, cell)| {
+                    cell.map(|cell| {
+                        let Cell { cell_type, id } = cell;
+                        let (color, expansion, duration) = match cell_type {
+                            CellType::Bomb => (PARTICLE_COLORS[HEIGHT - y - 1], (0., 3.), 40),
+                            CellType::Tile => ("#FFFFFF", (0., 1.), 10),
+                        };
+                        ParticleAnimator::new(
+                            id + 1_000_000,
+                            color,
+                            cell_type,
+                            x as f64,
+                            y as f64,
+                            expansion,
+                            (1., 0.),
+                            (HEIGHT - y - 1) * 10,
+                            duration,
+                        )
+                    })
+                })
+            })
+            .collect();
+
+        let reset_animation = self
+            .board
+            .cells
+            .iter()
+            .enumerate()
+            .flat_map(|(x, col)| {
+                col.iter().enumerate().flat_map(move |(y, cell)| {
+                    cell.map(|cell| {
+                        let Cell { cell_type, id } = cell;
+                        Box::new(CellAnimator::new(
+                            id,
+                            x as f64,
+                            (y as f64, y as f64),
+                            (1., 0.),
+                            (HEIGHT - y - 1) * 10,
+                            10,
+                            cell_type,
+                        )) as Box<dyn Animation<FloatingCell>>
+                    })
+                })
+            })
+            .collect();
+        let mut animator = self.animator.borrow_mut();
+        animator.animation.push(
+            Animator::new(reset_animation)
+                .zip(SoundPlayer::new(Vec::new()))
+                .zip(SingleAnimation::new(particles)),
+        );
+        self.board.cells = [[None; HEIGHT]; WIDTH];
     }
 
     fn is_filled(&self) -> bool {
@@ -284,7 +371,7 @@ impl AnimatedBoard {
     }
 
     pub fn frame(&self) -> (Vec<FloatingCell>, Vec<Sound>) {
-        self.animator.borrow().frame().unwrap_or_else(|| {
+        let (frame, particles) = self.animator.borrow().frame().unwrap_or_else(|| {
             let cells = self
                 .board
                 .cells
@@ -293,14 +380,13 @@ impl AnimatedBoard {
                 .flat_map(|(x, column)| {
                     column.iter().enumerate().flat_map(move |(y, cell)| {
                         cell.map(|cell| {
-                            let (x, y) = (x as f64, y as f64);
                             let Cell { id, cell_type } = cell;
-                            let opacity =
-                                if self.visible == Invisible && cell_type == CellType::Tile {
-                                    0.
-                                } else {
-                                    1.
-                                };
+                            let opacity = if self.visible == Invisible && y != HEIGHT - 1 {
+                                0.
+                            } else {
+                                1.
+                            };
+                            let (x, y) = (x as f64, y as f64);
                             FloatingCell {
                                 x,
                                 y,
@@ -312,8 +398,13 @@ impl AnimatedBoard {
                     })
                 })
                 .collect();
-            (cells, Vec::new())
-        })
+            ((cells, Vec::new()), Vec::new())
+        });
+        let mut particles_animator = self.particles.borrow_mut();
+        particles
+            .into_iter()
+            .for_each(|x| particles_animator.animation.push(x));
+        frame
     }
 
     pub fn particles(&self) -> Vec<FloatingParticle> {
@@ -642,6 +733,7 @@ pub struct GameHard {
     grade: Rc<RefCell<GradeManager>>,
     fulfills_gm_condition: bool,
     pub until_single: usize,
+    pub single_frequency: usize,
     pub section: usize,
     pub level: usize,
     pub level_limit: usize,
@@ -657,8 +749,9 @@ impl GameHard {
             grade: Rc::new(RefCell::new(GradeManager::new())),
             fulfills_gm_condition: false,
             until_single: 999,
+            single_frequency: 999,
             section: 0,
-            level: 0,
+            level: 880, //DEBUG
             level_limit: 999,
             sounds: Rc::new(RefCell::new(Vec::new())),
             grade_animation: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
@@ -678,7 +771,7 @@ impl GameHard {
         }
 
         if self.until_single == 0 {
-            self.until_single = SINGLE_FREQUENCY[self.section] - 1;
+            self.until_single = self.single_frequency - 1;
             let bomb = self.generator.next_single();
             let mut row = [CellType::Tile; WIDTH];
             row[bomb] = CellType::Bomb;
@@ -747,14 +840,18 @@ impl Reducible for GameHard {
 
                     if game.section < section {
                         game.section = section;
-                        game.until_single = SINGLE_FREQUENCY[game.section];
+                        game.single_frequency = SINGLE_FREQUENCY[section];
                         if game.section == 9 {
                             game.fulfills_gm_condition =
                                 game.grade.borrow().fulfills_gm_condition();
-                            if game.fulfills_gm_condition {
+                            if !game.fulfills_gm_condition {
+                                //DEBUG
+                                game.board.reset();
+                                game.single_frequency = 9999;
                                 game.board.visible = Invisible;
                             }
                         }
+                        game.until_single = SINGLE_FREQUENCY[game.section];
                     }
 
                     game.board.apply_gravity();

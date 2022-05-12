@@ -237,7 +237,7 @@ pub fn game_component(props: &Props) -> Html {
                     <rect x="0" y="0" width={width} height={height} fill="rgba(0, 0, 0, 0.5)" />
                     <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"GAME OVER"}</text>
                 }
-                if game.section > 0 {
+                if SINGLE_FREQUENCY[game.section] < 100 {
                     <rect x="0" y="0" width={indicator_width} height={indicator_height} fill={indicator_color} />
                 }
                 <text x="0" y={format!("{font_size_large}px")} transform={format!("scale({grade_zoom_rate})")} class="grade">
