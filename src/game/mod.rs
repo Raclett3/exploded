@@ -382,3 +382,104 @@ impl Reducible for Game {
         self_cloned.into()
     }
 }
+
+#[derive(Clone)]
+pub struct GameHard {
+    pub board: AnimatedBoard,
+    double_generator: BombGenerator<(usize, usize)>,
+    single_generator: BombGenerator<usize>,
+    pub until_single: usize,
+    pub section: usize,
+    pub level: usize,
+    pub level_limit: usize,
+    pub score_animator: Rc<RefCell<FloatAnimator<usize, NumberAnimator>>>,
+}
+
+impl GameHard {
+    pub fn new() -> Self {
+        GameHard {
+            board: AnimatedBoard::new(),
+            double_generator: BombGenerator::new(generate_x_pairs),
+            single_generator: BombGenerator::new(|| (0..WIDTH).collect()),
+            until_single: 999,
+            section: 0,
+            level: 0,
+            level_limit: 999,
+            score_animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
+                NumberAnimator::new(0),
+            )))),
+        }
+    }
+
+    pub fn is_over(&self) -> bool {
+        let reached_limit = self.level <= self.level_limit;
+        self.board.is_filled() || !reached_limit
+    }
+
+    pub fn next_row(&mut self) -> [CellType; WIDTH] {
+        if self.level % 100 != 99 && self.level != 998 {
+            self.level += 1;
+        }
+
+        if self.until_single == 0 {
+            self.until_single = 10 - self.section;
+            let bomb = self.single_generator.next();
+            let mut row = [CellType::Tile; WIDTH];
+            row[bomb] = CellType::Bomb;
+            row
+        } else {
+            let bombs = self.double_generator.next();
+            let mut row = [CellType::Tile; WIDTH];
+            row[bombs.0] = CellType::Bomb;
+            row[bombs.1] = CellType::Bomb;
+            self.until_single -= 1;
+            row
+        }
+    }
+}
+
+impl Reducible for GameHard {
+    type Action = GameAction;
+
+    fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
+        let mut self_cloned = (*self).clone();
+
+        match action {
+            GameAction::Remove(x, y) => {
+                if self_cloned.is_over() {
+                    if !self_cloned.board.is_animating() {
+                        let mut game = GameHard::new();
+                        let row = game.next_row();
+                        game.board.feed(&row);
+                        return Rc::new(game);
+                    } else {
+                        return self_cloned.into();
+                    }
+                }
+
+                let (removed_cells, removed_bombs) = self_cloned.board.remove(x, y);
+                if removed_cells > 0 {
+                    self_cloned.level += removed_bombs;
+                    if self_cloned.section < self_cloned.level / 100 {
+                        self_cloned.section = self_cloned.level / 100;
+                        self_cloned.until_single = 10 - self_cloned.section + 1;
+                    }
+
+                    self_cloned.board.apply_gravity();
+                    let row = self_cloned.next_row();
+                    self_cloned.board.feed(&row);
+                }
+            }
+            GameAction::Feed => {
+                let row = self_cloned.next_row();
+                self_cloned.board.feed(&row);
+            }
+            GameAction::Animate => {
+                self.board.animate();
+                self.score_animator.borrow_mut().animate();
+            }
+        }
+
+        self_cloned.into()
+    }
+}

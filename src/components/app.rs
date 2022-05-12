@@ -1,4 +1,5 @@
 use super::game::Game;
+use super::game_hard::GameHard;
 use crate::game::{HEIGHT, WIDTH};
 use yew::prelude::*;
 
@@ -15,8 +16,15 @@ fn fit_with_aspect_ratio(
     }
 }
 
+#[derive(Clone, Copy)]
+enum Difficulty {
+    Normal,
+    Hard,
+}
+
 #[function_component(App)]
 pub fn app() -> Html {
+    let difficulty: UseStateHandle<Option<Difficulty>> = use_state(|| None);
     let window = web_sys::window().unwrap();
     let width = window.inner_width().unwrap().as_f64().unwrap();
     let height = window.inner_height().unwrap().as_f64().unwrap();
@@ -27,7 +35,27 @@ pub fn app() -> Html {
     let left = (width - resized_width) / 2.;
     let cell_size = resized_width as f64 / WIDTH as f64;
 
-    html! {
-        <Game cell_size={cell_size} left={left} top={top} />
+    let cloned_difficulty = difficulty.clone();
+    let select_difficulty = |diff: Difficulty| {
+        let cloned_difficulty = cloned_difficulty.clone();
+        Callback::from(move |event: web_sys::MouseEvent| {
+            event.prevent_default();
+            cloned_difficulty.set(Some(diff));
+        })
+    };
+
+    match *difficulty {
+        None => html! {
+            <>
+                <p><a style="color: #FFFFFF;" href="#" onclick={select_difficulty(Difficulty::Normal)}>{"normal"}</a></p>
+                <p><a style="color: #FFFFFF;" href="#" onclick={select_difficulty(Difficulty::Hard)}>{"hard"}</a></p>
+            </>
+        },
+        Some(Difficulty::Normal) => html! {
+            <Game cell_size={cell_size} left={left} top={top} />
+        },
+        Some(Difficulty::Hard) => html! {
+            <GameHard cell_size={cell_size} left={left} top={top} />
+        },
     }
 }
