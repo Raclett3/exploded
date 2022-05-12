@@ -421,11 +421,87 @@ impl Reducible for Game {
     }
 }
 
+fn cumulate(iter: impl Iterator<Item = usize>) -> impl Iterator<Item = usize> {
+    iter.scan(0, |acc, x| {
+        *acc += x;
+        Some(*acc)
+    })
+}
+
+#[derive(Clone)]
+struct SpreadBombGenerator {
+    rng: StdRng,
+    generated: [usize; WIDTH],
+}
+
+impl SpreadBombGenerator {
+    fn new() -> Self {
+        let random = js_sys::Math::random();
+        let rng = StdRng::seed_from_u64(u64::from_be_bytes(random.to_be_bytes()));
+        SpreadBombGenerator {
+            rng,
+            generated: [0; WIDTH],
+        }
+    }
+
+    fn possibility(&self) -> Vec<usize> {
+        let max = self.generated.iter().copied().max().unwrap();
+        self.generated.iter().map(|x| 1 << (max - x)).collect()
+    }
+
+    fn next_double(&mut self) -> (usize, usize) {
+        let mut possibility = self.possibility();
+        web_sys::console::log_1(&format!("{:?}", possibility).into());
+
+        let mut sum = possibility.iter().sum::<usize>();
+        let r = self.rng.gen_range(0..sum);
+
+        let left = cumulate(possibility.iter().copied())
+            .enumerate()
+            .filter(|&(_, x)| r < x)
+            .map(|(i, _)| i)
+            .next()
+            .unwrap();
+
+        sum -= possibility[left];
+        possibility[left] = 0;
+        let r = self.rng.gen_range(0..sum);
+
+        let right = cumulate(possibility.iter().copied())
+            .enumerate()
+            .filter(|&(_, x)| r < x)
+            .map(|(i, _)| i)
+            .next()
+            .unwrap();
+
+        self.generated[left] += 1;
+        self.generated[right] += 1;
+        (left, right)
+    }
+
+    fn next_single(&mut self) -> usize {
+        let possibility = self.possibility();
+        web_sys::console::log_1(&format!("{:?}", possibility).into());
+
+        let sum = possibility.iter().sum::<usize>();
+        let r = self.rng.gen_range(0..sum);
+
+        let bomb = cumulate(possibility.iter().copied())
+            .enumerate()
+            .filter(|&(_, x)| r < x)
+            .map(|(i, _)| i)
+            .next()
+            .unwrap();
+
+        self.generated[bomb] += 1;
+        bomb
+    }
+}
+
 #[derive(Clone)]
 pub struct GameHard {
     pub board: AnimatedBoard,
-    double_generator: BombGenerator<(usize, usize)>,
-    single_generator: BombGenerator<usize>,
+    generator: SpreadBombGenerator,
     pub until_single: usize,
     pub section: usize,
     pub level: usize,
@@ -437,8 +513,7 @@ impl GameHard {
     pub fn new() -> Self {
         GameHard {
             board: AnimatedBoard::new(),
-            double_generator: BombGenerator::new(generate_x_pairs),
-            single_generator: BombGenerator::new(|| (0..WIDTH).collect()),
+            generator: SpreadBombGenerator::new(),
             until_single: 999,
             section: 0,
             level: 0,
@@ -461,12 +536,12 @@ impl GameHard {
 
         if self.until_single == 0 {
             self.until_single = SINGLE_FREQUENCY[self.section] - 1;
-            let bomb = self.single_generator.next();
+            let bomb = self.generator.next_single();
             let mut row = [CellType::Tile; WIDTH];
             row[bomb] = CellType::Bomb;
             row
         } else {
-            let bombs = self.double_generator.next();
+            let bombs = self.generator.next_double();
             let mut row = [CellType::Tile; WIDTH];
             row[bombs.0] = CellType::Bomb;
             row[bombs.1] = CellType::Bomb;
