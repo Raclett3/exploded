@@ -49,8 +49,8 @@ pub fn app() -> Html {
             <div class="app">
                 <h1>{"Exploded"}</h1>
                 <h2>{"Select a game mode"}</h2>
-                <h3><a href="#" onclick={select_difficulty(Difficulty::Normal)}>{"normal"}</a></h3>
-                <h3><a href="#" onclick={select_difficulty(Difficulty::Hard)}>{"hard"}</a></h3>
+                <h3><a href="#" onclick={select_difficulty(Difficulty::Normal)}>{"NORMAL"}</a></h3>
+                <h3><a href="#" onclick={select_difficulty(Difficulty::Hard)}>{"MASTER"}</a></h3>
             </div>
         },
         Some(Difficulty::Normal) => html! {
