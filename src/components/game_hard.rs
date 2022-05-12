@@ -129,6 +129,7 @@ pub fn game_component(props: &Props) -> Html {
     let fall_sound = use_sound("/sound/fall.wav", &audio_context);
     let feed_sound = use_sound("/sound/feed.wav", &audio_context);
     let stuck_sound = use_sound("/sound/stuck.wav", &audio_context);
+    let levelup_sound = use_sound("/sound/levelup.wav", &audio_context);
 
     let cloned_game = game.clone();
 
@@ -172,15 +173,19 @@ pub fn game_component(props: &Props) -> Html {
         }
     });
 
-    let (floating_cells, sounds) = game.board.frame();
+    let (floating_cells, mut sounds) = game.board.frame();
+    sounds.append(&mut game.sounds());
 
-    if let Some(sound) = sounds.first() {
+    for sound in sounds {
         let sound = match sound {
-            Sound::Break => break_sound,
-            Sound::Feed => feed_sound,
-            Sound::Fall => fall_sound,
-            Sound::Stuck => stuck_sound,
+            Sound::Break => &break_sound,
+            Sound::Feed => &feed_sound,
+            Sound::Fall => &fall_sound,
+            Sound::Stuck => &stuck_sound,
+            Sound::LevelUp => &levelup_sound,
         };
+
+        let sound = sound.clone();
 
         wasm_bindgen_futures::spawn_local(async move { sound.play().await });
     }

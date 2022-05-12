@@ -193,6 +193,7 @@ pub fn game_component(props: &Props) -> Html {
             Sound::Feed => feed_sound,
             Sound::Fall => fall_sound,
             Sound::Stuck => stuck_sound,
+            _ => unreachable!(),
         };
 
         wasm_bindgen_futures::spawn_local(async move { sound.play().await });

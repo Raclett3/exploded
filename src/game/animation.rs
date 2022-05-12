@@ -183,6 +183,7 @@ pub enum Sound {
     Fall,
     Feed,
     Stuck,
+    LevelUp,
 }
 
 pub struct SoundPlayer {

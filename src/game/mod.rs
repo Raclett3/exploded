@@ -205,7 +205,7 @@ impl AnimatedBoard {
                 )) as Box<dyn Animation<FloatingCell>>
             }))
             .collect();
-        let remove_sounds = dists
+        let mut remove_sounds = dists
             .iter()
             .flat_map(|&(_, dist, _, _, cell_type)| {
                 if cell_type == CellType::Bomb || dist == 0 {
@@ -214,7 +214,9 @@ impl AnimatedBoard {
                     None
                 }
             })
-            .collect();
+            .collect::<Vec<_>>();
+        remove_sounds.sort_by_key(|x| x.0);
+        remove_sounds.dedup_by_key(|x| x.0);
         self.animator
             .borrow_mut()
             .animation
@@ -567,13 +569,13 @@ impl GradeManager {
         }
     }
 
-    fn add(&mut self, section: usize, bombs: usize) {
+    fn add(&mut self, section: usize, bombs: usize) -> bool {
         fn sqrt(n: usize) -> usize {
             (0..).take_while(|x| x * x <= n).last().unwrap()
         }
 
         if self.current_grade().grade == "S9" && section == 9 {
-            return;
+            return false;
         }
 
         let score = sqrt(bombs * bombs * bombs) * (section / 2 + 1);
@@ -581,10 +583,13 @@ impl GradeManager {
         self.score += score as isize;
         self.max_chain_per_section[section] = self.max_chain_per_section[section].max(bombs);
 
+        let is_promoted = self.score >= self.current_grade().required_score;
         while self.score >= self.current_grade().required_score {
             self.score -= self.current_grade().required_score;
             self.current_grade += 1;
         }
+
+        is_promoted
     }
 
     fn current_grade(&self) -> &'static Grade {
@@ -607,6 +612,7 @@ pub struct GameHard {
     pub section: usize,
     pub level: usize,
     pub level_limit: usize,
+    sounds: Rc<RefCell<Vec<Sound>>>,
 }
 
 impl GameHard {
@@ -620,6 +626,7 @@ impl GameHard {
             section: 0,
             level: 0,
             level_limit: 999,
+            sounds: Rc::new(RefCell::new(Vec::new())),
         }
     }
 
@@ -661,6 +668,10 @@ impl GameHard {
         let grade = self.grade.borrow();
         (grade.score, grade.current_grade().required_score)
     }
+
+    pub fn sounds(&self) -> Vec<Sound> {
+        std::mem::take(self.sounds.borrow_mut().as_mut())
+    }
 }
 
 impl Reducible for GameHard {
@@ -698,7 +709,10 @@ impl Reducible for GameHard {
                         }
                     }
 
-                    game.grade.borrow_mut().add(game.section, removed_bombs);
+                    let is_promoted = game.grade.borrow_mut().add(game.section, removed_bombs);
+                    if is_promoted {
+                        self.sounds.borrow_mut().push(Sound::LevelUp);
+                    }
 
                     game.board.apply_gravity();
                     let row = game.next_row();
