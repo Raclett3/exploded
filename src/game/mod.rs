@@ -496,15 +496,109 @@ impl SpreadBombGenerator {
     }
 }
 
+pub struct Grade {
+    grade: &'static str,
+    decay_rate: usize,
+    required_score: usize,
+}
+
+impl Grade {
+    const fn new(grade: &'static str, decay_rate: usize, required_score: usize) -> Grade {
+        Grade {
+            grade,
+            decay_rate,
+            required_score,
+        }
+    }
+}
+
+static RANKS: [Grade; 18] = [
+    Grade::new("C3", 120, 100),
+    Grade::new("C2", 90, 100),
+    Grade::new("C1", 90, 150),
+    Grade::new("B3", 75, 100),
+    Grade::new("B2", 75, 100),
+    Grade::new("B1", 75, 150),
+    Grade::new("A3", 60, 100),
+    Grade::new("A2", 60, 100),
+    Grade::new("A1", 60, 200),
+    Grade::new("S1", 50, 150),
+    Grade::new("S2", 45, 150),
+    Grade::new("S3", 40, 150),
+    Grade::new("S4", 35, 150),
+    Grade::new("S5", 30, 150),
+    Grade::new("S6", 25, 200),
+    Grade::new("S7", 20, 200),
+    Grade::new("S8", 15, 300),
+    Grade::new("S9", 15, 1000000),
+];
+
+pub struct GradeManager {
+    score: usize,
+    current_grade: usize,
+    max_chain_per_section: [usize; 10],
+    elapsed_frames: f64,
+    last_timestamp: f64,
+}
+
+impl GradeManager {
+    fn new() -> GradeManager {
+        GradeManager {
+            score: 0,
+            current_grade: 0,
+            max_chain_per_section: [0; 10],
+            elapsed_frames: 0.,
+            last_timestamp: js_sys::Date::now(),
+        }
+    }
+
+    fn decay(&mut self) {
+        if self.score == 0 {
+            self.elapsed_frames = 0.;
+            self.last_timestamp = js_sys::Date::now();
+            return;
+        }
+
+        let now = js_sys::Date::now();
+        self.elapsed_frames += (now - self.last_timestamp) / 1000. * 60.;
+        self.last_timestamp = now;
+
+        let decay_rate = self.current_grade().decay_rate;
+        let decay = self.elapsed_frames as usize / decay_rate;
+        self.score = self.score.saturating_sub(decay);
+        self.elapsed_frames -= (decay * decay_rate) as f64;
+    }
+
+    fn add(&mut self, section: usize, bombs: usize) {
+        fn sqrt(n: usize) -> usize {
+            (0..).take_while(|x| x * x <= n).last().unwrap()
+        }
+
+        let score = sqrt(bombs * bombs * bombs) * (section / 2 + 1);
+
+        self.score += score;
+        self.max_chain_per_section[section] = self.max_chain_per_section[section].max(bombs);
+
+        while self.score >= self.current_grade().required_score {
+            self.score -= self.current_grade().required_score;
+            self.current_grade += 1;
+        }
+    }
+
+    fn current_grade(&self) -> &'static Grade {
+        &RANKS[self.current_grade]
+    }
+}
+
 #[derive(Clone)]
 pub struct GameHard {
     pub board: AnimatedBoard,
     generator: SpreadBombGenerator,
+    grade: Rc<RefCell<GradeManager>>,
     pub until_single: usize,
     pub section: usize,
     pub level: usize,
     pub level_limit: usize,
-    pub score_animator: Rc<RefCell<FloatAnimator<usize, NumberAnimator>>>,
 }
 
 impl GameHard {
@@ -512,13 +606,11 @@ impl GameHard {
         GameHard {
             board: AnimatedBoard::new(),
             generator: SpreadBombGenerator::new(),
+            grade: Rc::new(RefCell::new(GradeManager::new())),
             until_single: 999,
             section: 0,
             level: 0,
             level_limit: 999,
-            score_animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
-                NumberAnimator::new(0),
-            )))),
         }
     }
 
@@ -546,6 +638,15 @@ impl GameHard {
             self.until_single -= 1;
             row
         }
+    }
+
+    pub fn grade(&self) -> &'static str {
+        self.grade.borrow().current_grade().grade
+    }
+
+    pub fn grade_condition(&self) -> (usize, usize) {
+        let grade = self.grade.borrow();
+        (grade.score, grade.current_grade().required_score)
     }
 }
 
@@ -579,6 +680,11 @@ impl Reducible for GameHard {
                         }
                     }
 
+                    self_cloned
+                        .grade
+                        .borrow_mut()
+                        .add(self_cloned.section, removed_bombs);
+
                     self_cloned.board.apply_gravity();
                     let row = self_cloned.next_row();
                     self_cloned.board.feed(&row);
@@ -593,8 +699,8 @@ impl Reducible for GameHard {
                 self_cloned.board.feed(&row);
             }
             GameAction::Animate => {
-                self.board.animate();
-                self.score_animator.borrow_mut().animate();
+                self_cloned.board.animate();
+                self_cloned.grade.borrow_mut().decay();
             }
         }
 
