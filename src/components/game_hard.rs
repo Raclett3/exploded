@@ -207,7 +207,7 @@ pub fn game_component(props: &Props) -> Html {
     let center_y = (HEIGHT as f64 * cell_size / 2.).to_string();
     let upper_y = (HEIGHT as f64 * cell_size / 3.).to_string();
 
-    let until_single = (game.until_single + 1) as f64 / (SINGLE_FREQUENCY[game.section]) as f64;
+    let until_single = (game.until_single + 1) as f64 / (game.single_frequency) as f64;
     let indicator_width = (WIDTH as f64 * cell_size * until_single).to_string();
     let indicator_height = (cell_size * 0.1).to_string();
     let indicator_color = if game.until_single == 0 {
@@ -237,7 +237,7 @@ pub fn game_component(props: &Props) -> Html {
                     <rect x="0" y="0" width={width} height={height} fill="rgba(0, 0, 0, 0.5)" />
                     <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"GAME OVER"}</text>
                 }
-                if SINGLE_FREQUENCY[game.section] < 100 {
+                if game.single_frequency < 100 {
                     <rect x="0" y="0" width={indicator_width} height={indicator_height} fill={indicator_color} />
                 }
                 <text x="0" y={format!("{font_size_large}px")} transform={format!("scale({grade_zoom_rate})")} class="grade">
