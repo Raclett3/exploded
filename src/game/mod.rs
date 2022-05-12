@@ -602,6 +602,36 @@ impl GradeManager {
     }
 }
 
+struct GradeAnimation {
+    frame_since_promotion: usize,
+}
+
+impl GradeAnimation {
+    fn new() -> Self {
+        GradeAnimation {
+            frame_since_promotion: 30,
+        }
+    }
+
+    fn promote(&mut self) {
+        self.frame_since_promotion = 0;
+    }
+}
+
+impl Animation<f64> for GradeAnimation {
+    fn advance_frames(&mut self, frames: usize) {
+        self.frame_since_promotion += frames;
+    }
+
+    fn current_frame(&self) -> f64 {
+        2. - self.frame_since_promotion.min(30) as f64 / 30.0 * 1.
+    }
+
+    fn is_over(&self) -> bool {
+        false
+    }
+}
+
 #[derive(Clone)]
 pub struct GameHard {
     pub board: AnimatedBoard,
@@ -613,6 +643,7 @@ pub struct GameHard {
     pub level: usize,
     pub level_limit: usize,
     sounds: Rc<RefCell<Vec<Sound>>>,
+    grade_animation: Rc<RefCell<FloatAnimator<f64, GradeAnimation>>>,
 }
 
 impl GameHard {
@@ -627,6 +658,9 @@ impl GameHard {
             level: 0,
             level_limit: 999,
             sounds: Rc::new(RefCell::new(Vec::new())),
+            grade_animation: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
+                GradeAnimation::new(),
+            )))),
         }
     }
 
@@ -672,6 +706,10 @@ impl GameHard {
     pub fn sounds(&self) -> Vec<Sound> {
         std::mem::take(self.sounds.borrow_mut().as_mut())
     }
+
+    pub fn grade_zoom_rate(&self) -> f64 {
+        self.grade_animation.borrow().frame()
+    }
 }
 
 impl Reducible for GameHard {
@@ -712,6 +750,7 @@ impl Reducible for GameHard {
                     let is_promoted = game.grade.borrow_mut().add(game.section, removed_bombs);
                     if is_promoted {
                         self.sounds.borrow_mut().push(Sound::LevelUp);
+                        self.grade_animation.borrow_mut().animation.promote();
                     }
 
                     game.board.apply_gravity();
@@ -729,6 +768,7 @@ impl Reducible for GameHard {
             }
             GameAction::Animate => {
                 game.board.animate();
+                game.grade_animation.borrow_mut().animate();
                 game.grade.borrow_mut().decay();
             }
         }

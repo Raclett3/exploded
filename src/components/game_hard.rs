@@ -217,7 +217,8 @@ pub fn game_component(props: &Props) -> Html {
     };
     let grade = game.grade();
     let (a, b) = game.grade_condition();
-    let debug = cfg!(debug_assertions);
+    let grade_zoom_rate = game.grade_zoom_rate();
+    let debug = false; //cfg!(debug_assertions);
 
     html! {
         <div class="game" style={format!("top: {}px; left: {}px;", top, left)} onmousedown={onmousedown} ontouchstart={ontouchstart}>
@@ -239,7 +240,7 @@ pub fn game_component(props: &Props) -> Html {
                 if game.section > 0 {
                     <rect x="0" y="0" width={indicator_width} height={indicator_height} fill={indicator_color} />
                 }
-                <text x="0" y={format!("{font_size_large}px")} class="grade">
+                <text x="0" y={format!("{font_size_large}px")} transform={format!("scale({grade_zoom_rate})")} class="grade">
                     <tspan font-size={format!("{font_size_large}px")}>{&grade[0..1]}</tspan>
                     <tspan font-size={format!("{font_size}px")}>{&grade[1..]}</tspan>
                     if debug {
