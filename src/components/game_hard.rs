@@ -218,7 +218,7 @@ pub fn game_component(props: &Props) -> Html {
     let grade = game.grade();
     let (a, b) = game.grade_condition();
     let grade_zoom_rate = game.grade_zoom_rate();
-    let debug = false; //cfg!(debug_assertions);
+    let debug = cfg!(debug_assertions);
 
     html! {
         <div class="game" style={format!("top: {}px; left: {}px;", top, left)} onmousedown={onmousedown} ontouchstart={ontouchstart}>
