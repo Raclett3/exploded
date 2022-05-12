@@ -377,39 +377,38 @@ impl Reducible for Game {
     type Action = GameAction;
 
     fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
-        let mut self_cloned = (*self).clone();
+        let mut game = (*self).clone();
 
         match action {
             GameAction::Remove(x, y) => {
-                if self_cloned.is_over() {
-                    if !self_cloned.board.is_animating() {
+                if game.is_over() {
+                    if !game.board.is_animating() {
                         let mut game = Game::new();
                         let row = game.next_row();
                         game.board.feed(&row);
                         return Rc::new(game);
                     } else {
-                        return self_cloned.into();
+                        return game.into();
                     }
                 }
 
-                let (removed_cells, removed_bombs) = self_cloned.board.remove(x, y);
+                let (removed_cells, removed_bombs) = game.board.remove(x, y);
                 if removed_cells > 0 {
-                    self_cloned.score += (removed_cells + 1) * removed_cells / 2;
-                    self_cloned
-                        .score_animator
+                    game.score += (removed_cells + 1) * removed_cells / 2;
+                    game.score_animator
                         .borrow_mut()
                         .animation
-                        .set_target(self_cloned.score);
-                    self_cloned.bombs_removed += removed_bombs;
+                        .set_target(game.score);
+                    game.bombs_removed += removed_bombs;
 
-                    self_cloned.board.apply_gravity();
-                    let row = self_cloned.next_row();
-                    self_cloned.board.feed(&row);
+                    game.board.apply_gravity();
+                    let row = game.next_row();
+                    game.board.feed(&row);
                 }
             }
             GameAction::Feed => {
-                let row = self_cloned.next_row();
-                self_cloned.board.feed(&row);
+                let row = game.next_row();
+                game.board.feed(&row);
             }
             GameAction::Animate => {
                 self.board.animate();
@@ -417,7 +416,7 @@ impl Reducible for Game {
             }
         }
 
-        self_cloned.into()
+        game.into()
     }
 }
 
@@ -654,56 +653,53 @@ impl Reducible for GameHard {
     type Action = GameAction;
 
     fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
-        let mut self_cloned = (*self).clone();
+        let mut game = (*self).clone();
 
         match action {
             GameAction::Remove(x, y) => {
-                if self_cloned.is_over() {
-                    if !self_cloned.board.is_animating() {
+                if game.is_over() {
+                    if !game.board.is_animating() {
                         let mut game = GameHard::new();
                         let row = game.next_row();
                         game.board.feed(&row);
                         return Rc::new(game);
                     } else {
-                        return self_cloned.into();
+                        return game.into();
                     }
                 }
 
-                let (removed_cells, removed_bombs) = self_cloned.board.remove(x, y);
+                let (removed_cells, removed_bombs) = game.board.remove(x, y);
                 if removed_cells > 0 {
-                    self_cloned.level += removed_bombs;
-                    if self_cloned.section < self_cloned.level / 100 {
-                        self_cloned.section = (self_cloned.level / 100).min(9);
-                        self_cloned.until_single = SINGLE_FREQUENCY[self_cloned.section];
-                        if self_cloned.section == 9 {
-                            self_cloned.board.visible = Invisible;
+                    game.level += removed_bombs;
+                    if game.section < game.level / 100 {
+                        game.section = (game.level / 100).min(9);
+                        game.until_single = SINGLE_FREQUENCY[game.section];
+                        if game.section == 9 {
+                            game.board.visible = Invisible;
                         }
                     }
 
-                    self_cloned
-                        .grade
-                        .borrow_mut()
-                        .add(self_cloned.section, removed_bombs);
+                    game.grade.borrow_mut().add(game.section, removed_bombs);
 
-                    self_cloned.board.apply_gravity();
-                    let row = self_cloned.next_row();
-                    self_cloned.board.feed(&row);
+                    game.board.apply_gravity();
+                    let row = game.next_row();
+                    game.board.feed(&row);
 
-                    if self_cloned.is_over() && self_cloned.board.visible == Invisible {
-                        self_cloned.board.visible = InvisibleWhileAnimation;
+                    if game.is_over() && game.board.visible == Invisible {
+                        game.board.visible = InvisibleWhileAnimation;
                     }
                 }
             }
             GameAction::Feed => {
-                let row = self_cloned.next_row();
-                self_cloned.board.feed(&row);
+                let row = game.next_row();
+                game.board.feed(&row);
             }
             GameAction::Animate => {
-                self_cloned.board.animate();
-                self_cloned.grade.borrow_mut().decay();
+                game.board.animate();
+                game.grade.borrow_mut().decay();
             }
         }
 
-        self_cloned.into()
+        game.into()
     }
 }
