@@ -17,6 +17,8 @@ const PARTICLE_COLORS: [&str; 7] = [
     "#FF0000", "#FF8800", "#FFFF00", "#00FF00", "#00FFFF", "#0000FF", "#FF00FF",
 ];
 
+pub const SINGLE_FREQUENCY: [usize; 10] = [9999, 9, 8, 7, 6, 5, 4, 3, 2, 3];
+
 #[derive(Clone)]
 struct BombGenerator<T> {
     shuffled: Vec<T>,
@@ -458,7 +460,7 @@ impl GameHard {
         }
 
         if self.until_single == 0 {
-            self.until_single = 10 - self.section.min(8);
+            self.until_single = SINGLE_FREQUENCY[self.section] - 1;
             let bomb = self.single_generator.next();
             let mut row = [CellType::Tile; WIDTH];
             row[bomb] = CellType::Bomb;
@@ -497,8 +499,8 @@ impl Reducible for GameHard {
                 if removed_cells > 0 {
                     self_cloned.level += removed_bombs;
                     if self_cloned.section < self_cloned.level / 100 {
-                        self_cloned.section = self_cloned.level / 100;
-                        self_cloned.until_single = 10 - self_cloned.section.min(8) + 1;
+                        self_cloned.section = (self_cloned.level / 100).min(9);
+                        self_cloned.until_single = SINGLE_FREQUENCY[self_cloned.section];
                         if self_cloned.section == 9 {
                             self_cloned.board.visible = Invisible;
                         }

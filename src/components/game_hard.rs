@@ -205,7 +205,7 @@ pub fn game_component(props: &Props) -> Html {
     let center_y = (HEIGHT as f64 * cell_size / 2.).to_string();
     let upper_y = (HEIGHT as f64 * cell_size / 3.).to_string();
 
-    let until_single = (game.until_single + 1) as f64 / (11 - game.section.min(8)) as f64;
+    let until_single = (game.until_single + 1) as f64 / (SINGLE_FREQUENCY[game.section]) as f64;
     let indicator_width = (WIDTH as f64 * cell_size * until_single).to_string();
     let indicator_height = (cell_size * 0.1).to_string();
     let indicator_color = if game.until_single == 0 {
