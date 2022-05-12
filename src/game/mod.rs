@@ -574,7 +574,7 @@ impl GradeManager {
             (0..).take_while(|x| x * x <= n).last().unwrap()
         }
 
-        if self.current_grade().grade == "S9" && section == 9 {
+        if self.current_grade().grade == "S9" && section == 9 && self.max_chain_per_section[9] > 0 {
             return false;
         }
 
@@ -585,6 +585,9 @@ impl GradeManager {
 
         let is_promoted = self.score >= self.current_grade().required_score;
         while self.score >= self.current_grade().required_score {
+            if section < 9 && self.current_grade().grade == "S9" {
+                return false;
+            }
             self.score -= self.current_grade().required_score;
             self.current_grade += 1;
         }
@@ -735,6 +738,13 @@ impl Reducible for GameHard {
                 if removed_cells > 0 {
                     game.level += removed_bombs;
                     let section = (game.level / 100).min(9);
+
+                    let is_promoted = game.grade.borrow_mut().add(section, removed_bombs);
+                    if is_promoted {
+                        self.sounds.borrow_mut().push(Sound::LevelUp);
+                        self.grade_animation.borrow_mut().animation.promote();
+                    }
+
                     if game.section < section {
                         game.section = section;
                         game.until_single = SINGLE_FREQUENCY[game.section];
@@ -745,12 +755,6 @@ impl Reducible for GameHard {
                                 game.board.visible = Invisible;
                             }
                         }
-                    }
-
-                    let is_promoted = game.grade.borrow_mut().add(game.section, removed_bombs);
-                    if is_promoted {
-                        self.sounds.borrow_mut().push(Sound::LevelUp);
-                        self.grade_animation.borrow_mut().animation.promote();
                     }
 
                     game.board.apply_gravity();
