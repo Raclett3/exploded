@@ -412,8 +412,8 @@ impl GameHard {
     }
 
     pub fn is_over(&self) -> bool {
-        let reached_limit = self.level <= self.level_limit;
-        self.board.is_filled() || !reached_limit
+        let reached_limit = self.level >= self.level_limit;
+        self.board.is_filled() || reached_limit
     }
 
     pub fn next_row(&mut self) -> [CellType; WIDTH] {
