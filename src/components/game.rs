@@ -190,7 +190,6 @@ pub fn game_component(props: &Props) -> Html {
     let (floating_cells, sounds) = game.board.frame();
 
     if let Some(sound) = sounds.first() {
-        web_sys::console::log_1(&"sound".to_owned().into());
         let sound = match sound {
             Sound::Break => break_sound,
             Sound::Feed => feed_sound,
