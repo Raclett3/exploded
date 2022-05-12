@@ -46,10 +46,12 @@ pub fn app() -> Html {
 
     match *difficulty {
         None => html! {
-            <>
-                <p><a style="color: #FFFFFF;" href="#" onclick={select_difficulty(Difficulty::Normal)}>{"normal"}</a></p>
-                <p><a style="color: #FFFFFF;" href="#" onclick={select_difficulty(Difficulty::Hard)}>{"hard"}</a></p>
-            </>
+            <div class="app">
+                <h1>{"Exploded"}</h1>
+                <h2>{"Select a game mode"}</h2>
+                <h3><a href="#" onclick={select_difficulty(Difficulty::Normal)}>{"normal"}</a></h3>
+                <h3><a href="#" onclick={select_difficulty(Difficulty::Hard)}>{"hard"}</a></h3>
+            </div>
         },
         Some(Difficulty::Normal) => html! {
             <Game cell_size={cell_size} left={left} top={top} />

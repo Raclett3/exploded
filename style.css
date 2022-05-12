@@ -73,3 +73,13 @@ svg {
     transform-box: fill-box;
     transform-origin: center;
 }
+
+.app {
+    text-align: center;
+    color: #FFFFFF;
+    font-size: 200%;
+}
+
+.app a {
+    color: rgba(255, 255, 255, 0.8);
+}
