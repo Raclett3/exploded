@@ -51,9 +51,19 @@ impl<T> BombGenerator<T> {
     }
 }
 
+#[derive(Clone, PartialEq)]
+enum VisibleState {
+    Visible,
+    Invisible,
+    InvisibleWhileAnimation,
+}
+
+use VisibleState::*;
+
 #[derive(Clone)]
 pub struct AnimatedBoard {
     pub board: Board<WIDTH, HEIGHT>,
+    visible: VisibleState,
     #[allow(clippy::type_complexity)]
     pub animator: Rc<
         RefCell<
@@ -71,6 +81,7 @@ impl AnimatedBoard {
     fn new() -> Self {
         AnimatedBoard {
             board: Board::new(),
+            visible: Visible,
             animator: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
                 AnimationStream::new(),
             )))),
@@ -82,6 +93,7 @@ impl AnimatedBoard {
 
     fn feed(&mut self, row: &[CellType; WIDTH]) {
         self.board.feed(row);
+        let visible = self.visible == Visible;
 
         let feed_animation = self
             .board
@@ -92,11 +104,16 @@ impl AnimatedBoard {
                 col.iter().enumerate().flat_map(move |(y, cell)| {
                     cell.map(|cell| {
                         let Cell { id, cell_type } = cell;
+                        let opacity = if !visible && cell_type == CellType::Tile {
+                            0.
+                        } else {
+                            1.
+                        };
                         Box::new(CellAnimator::new(
                             id,
                             x as f64,
                             ((y + 1) as f64, y as f64),
-                            (1., 1.),
+                            (opacity, opacity),
                             0,
                             10,
                             cell_type,
@@ -123,6 +140,8 @@ impl AnimatedBoard {
         if dists.is_empty() {
             return (0, 0);
         }
+
+        let visible = self.visible == Visible;
 
         let mut particle_animator = self.particles.borrow_mut();
         dists
@@ -155,11 +174,16 @@ impl AnimatedBoard {
                 col.iter().enumerate().flat_map(move |(y, cell)| {
                     cell.map(|cell| {
                         let Cell { cell_type, id } = cell;
+                        let opacity = if !visible && cell_type == CellType::Tile {
+                            0.
+                        } else {
+                            1.
+                        };
                         Box::new(CellAnimator::new(
                             id,
                             x as f64,
                             (y as f64, y as f64),
-                            (1., 1.),
+                            (opacity, opacity),
                             0,
                             1,
                             cell_type,
@@ -199,6 +223,7 @@ impl AnimatedBoard {
 
     fn apply_gravity(&mut self) {
         let dists = self.board.apply_gravity();
+        let visible = self.visible == Visible;
         let fall_animation = self
             .board
             .cells
@@ -210,11 +235,16 @@ impl AnimatedBoard {
                     cell.map(|cell| {
                         let Cell { id, cell_type } = cell;
                         let dist = dists.get(&id).cloned().unwrap_or(0);
+                        let opacity = if !visible && cell_type == CellType::Tile {
+                            0.
+                        } else {
+                            1.
+                        };
                         Box::new(CellAnimator::new(
                             id,
                             x as f64,
                             ((y - dist) as f64, y as f64),
-                            (1., 1.),
+                            (opacity, opacity),
                             0,
                             dist * 5 + 1,
                             cell_type,
@@ -261,12 +291,18 @@ impl AnimatedBoard {
                         cell.map(|cell| {
                             let (x, y) = (x as f64, y as f64);
                             let Cell { id, cell_type } = cell;
+                            let opacity =
+                                if self.visible == Invisible && cell_type == CellType::Tile {
+                                    0.
+                                } else {
+                                    1.
+                                };
                             FloatingCell {
                                 x,
                                 y,
                                 id,
                                 cell_type,
-                                opacity: 1.,
+                                opacity,
                             }
                         })
                     })
@@ -422,7 +458,7 @@ impl GameHard {
         }
 
         if self.until_single == 0 {
-            self.until_single = 10 - self.section;
+            self.until_single = 10 - self.section.min(8);
             let bomb = self.single_generator.next();
             let mut row = [CellType::Tile; WIDTH];
             row[bomb] = CellType::Bomb;
@@ -462,12 +498,19 @@ impl Reducible for GameHard {
                     self_cloned.level += removed_bombs;
                     if self_cloned.section < self_cloned.level / 100 {
                         self_cloned.section = self_cloned.level / 100;
-                        self_cloned.until_single = 10 - self_cloned.section + 1;
+                        self_cloned.until_single = 10 - self_cloned.section.min(8) + 1;
+                        if self_cloned.section == 9 {
+                            self_cloned.board.visible = Invisible;
+                        }
                     }
 
                     self_cloned.board.apply_gravity();
                     let row = self_cloned.next_row();
                     self_cloned.board.feed(&row);
+
+                    if self_cloned.is_over() && self_cloned.board.visible == Invisible {
+                        self_cloned.board.visible = InvisibleWhileAnimation;
+                    }
                 }
             }
             GameAction::Feed => {
