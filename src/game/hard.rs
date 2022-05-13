@@ -266,7 +266,7 @@ impl GameHard {
     }
 
     pub fn next_row(&mut self) -> [CellType; WIDTH] {
-        if self.level % 100 != 99 && self.level != 998 {
+        if self.level % 100 != 99 && self.level != 998 && self.grade() != "master" {
             self.level += 1;
         }
 
@@ -309,7 +309,7 @@ impl GameHard {
     }
 }
 
-pub const SINGLE_FREQUENCY: [usize; 10] = [9999, 9, 8, 7, 6, 5, 4, 3, 2, 3];
+pub const SINGLE_FREQUENCY: [usize; 10] = [9999, 9, 8, 7, 6, 5, 4, 3, 2, 2];
 
 impl Reducible for GameHard {
     type Action = GameAction;
@@ -340,13 +340,12 @@ impl Reducible for GameHard {
                     if game.section < section {
                         game.section = section;
                         game.single_frequency = SINGLE_FREQUENCY[section];
+                        game.until_single = game.single_frequency;
                         if game.section == 9 && game.grade() == "master" {
                             game.level = 900;
                             game.board.reset();
-                            game.single_frequency = 9999;
                             game.board.visible = Invisible;
                         }
-                        game.until_single = SINGLE_FREQUENCY[game.section];
                     }
 
                     game.board.apply_gravity();
