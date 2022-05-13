@@ -231,6 +231,42 @@ impl Animation<f64> for GradeAnimation {
     }
 }
 
+pub struct Timer {
+    pre_timer_frames: usize,
+    elapsed_frames: usize,
+}
+
+impl Timer {
+    fn new(pre_timer_frames: usize) -> Self {
+        Timer {
+            pre_timer_frames,
+            elapsed_frames: 0,
+        }
+    }
+
+    fn is_started(&self) -> bool {
+        self.elapsed_frames >= self.pre_timer_frames
+    }
+}
+
+impl Animation<String> for Timer {
+    fn advance_frames(&mut self, frames: usize) {
+        self.elapsed_frames += frames;
+    }
+
+    fn current_frame(&self) -> String {
+        let frames = self.elapsed_frames.saturating_sub(self.pre_timer_frames);
+        let centiseconds = frames % 60 * 100 / 60;
+        let seconds = frames / 60 % 60;
+        let minutes = frames / 3600 % 60;
+        format!("{minutes:02}:{seconds:02}:{centiseconds:02}")
+    }
+
+    fn is_over(&self) -> bool {
+        false
+    }
+}
+
 #[derive(Clone)]
 pub struct GameHard {
     pub board: AnimatedBoard,
@@ -241,6 +277,8 @@ pub struct GameHard {
     pub section: usize,
     pub level: usize,
     pub level_limit: usize,
+    pub timer: Rc<RefCell<FloatAnimator<String, Timer>>>,
+    pub is_started: bool,
     sounds: Rc<RefCell<Vec<Sound>>>,
     grade_animation: Rc<RefCell<FloatAnimator<f64, GradeAnimation>>>,
 }
@@ -256,6 +294,8 @@ impl GameHard {
             section: 0,
             level: 0,
             level_limit: 999,
+            timer: Rc::new(RefCell::new(FloatAnimator::new(Box::new(Timer::new(60))))),
+            is_started: false,
             sounds: Rc::new(RefCell::new(Vec::new())),
             grade_animation: Rc::new(RefCell::new(FloatAnimator::new(Box::new(
                 GradeAnimation::new(),
@@ -324,10 +364,7 @@ impl Reducible for GameHard {
             GameAction::Remove(x, y) => {
                 if game.is_over() {
                     if !game.board.is_animating() {
-                        let mut game = GameHard::new();
-                        let row = game.next_row();
-                        game.board.feed(&row);
-                        return Rc::new(game);
+                        return Rc::new(GameHard::new());
                     } else {
                         return game.into();
                     }
@@ -373,6 +410,14 @@ impl Reducible for GameHard {
                 game.board.animate();
                 game.grade_animation.borrow_mut().animate();
                 game.grade.borrow_mut().decay();
+                if !game.is_over() || game.board.is_animating() {
+                    game.timer.borrow_mut().animate();
+                }
+                if !game.is_started && game.timer.borrow().animation.is_started() {
+                    game.is_started = true;
+                    let row = game.next_row();
+                    game.board.feed(&row);
+                }
             }
         }
 

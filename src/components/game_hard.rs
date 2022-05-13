@@ -135,7 +135,6 @@ pub fn game_component(props: &Props) -> Html {
 
     use_effect_with_deps(
         move |_| {
-            game.dispatch(GameAction::Feed);
             raf_loop(move || game.dispatch(GameAction::Animate));
             || ()
         },
@@ -218,6 +217,7 @@ pub fn game_component(props: &Props) -> Html {
     let grade = game.grade();
     let (a, b) = game.grade_condition();
     let grade_zoom_rate = game.grade_zoom_rate();
+    let timer = game.timer.borrow().frame();
     let debug = cfg!(debug_assertions);
 
     html! {
@@ -234,8 +234,11 @@ pub fn game_component(props: &Props) -> Html {
                     particles={particles}
                     cell_size={cell_size} />
                 if game.is_over() && !game.board.is_animating() {
-                    <rect x="0" y="0" width={width} height={height} fill="rgba(0, 0, 0, 0.5)" />
-                    <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"GAME OVER"}</text>
+                    <rect x="0" y="0" width={width.clone()} height={height} fill="rgba(0, 0, 0, 0.5)" />
+                    <text x={center_x.clone()} y={upper_y.clone()} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"GAME OVER"}</text>
+                }
+                if !game.is_started {
+                    <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"READY"}</text>
                 }
                 if game.single_frequency < 100 {
                     <rect x="0" y="0" width={indicator_width} height={indicator_height} fill={indicator_color} />
@@ -246,7 +249,10 @@ pub fn game_component(props: &Props) -> Html {
                     if debug {
                         <tspan font-size={format!("{font_size}px")}>{format!("({a}/{b})")}</tspan>
                     }
-                    </text>
+                </text>
+                <text x={width.clone()} y={format!("{font_size_large}px")} text-anchor="end" class="grade">
+                    <tspan font-size={format!("{font_size}px")}>{timer}</tspan>
+                </text>
             </svg>
         </div>
     }
