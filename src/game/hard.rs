@@ -173,7 +173,9 @@ impl GradeManager {
 
         let is_promoted = self.score >= self.current_grade().required_score;
         while self.score >= self.current_grade().required_score {
-            if section < 9 && self.current_grade().grade == "S9" {
+            if (section < 9 || !self.fulfills_master_condition())
+                && self.current_grade().grade == "S9"
+            {
                 return false;
             }
             self.score -= self.current_grade().required_score;
@@ -187,9 +189,12 @@ impl GradeManager {
         &RANKS[self.current_grade]
     }
 
-    fn fulfills_gm_condition(&self) -> bool {
+    fn fulfills_master_condition(&self) -> bool {
         let section_conditions = self.max_chain_per_section[0..=8].iter().all(|&x| x >= 5);
-        self.current_grade().grade == "master" && section_conditions
+        let current_grade = self.current_grade();
+        current_grade.grade == "S9"
+            && self.score >= current_grade.required_score
+            && section_conditions
     }
 }
 
@@ -228,7 +233,6 @@ pub struct GameHard {
     pub board: AnimatedBoard,
     generator: SpreadBombGenerator,
     grade: Rc<RefCell<GradeManager>>,
-    fulfills_gm_condition: bool,
     pub until_single: usize,
     pub single_frequency: usize,
     pub section: usize,
@@ -244,7 +248,6 @@ impl GameHard {
             board: AnimatedBoard::new(),
             generator: SpreadBombGenerator::new(),
             grade: Rc::new(RefCell::new(GradeManager::new())),
-            fulfills_gm_condition: false,
             until_single: 999,
             single_frequency: 999,
             section: 0,
@@ -284,10 +287,11 @@ impl GameHard {
     }
 
     pub fn grade(&self) -> &'static str {
-        if self.fulfills_gm_condition && self.level >= self.level_limit {
+        let grade = self.grade.borrow().current_grade().grade;
+        if grade == "master" && self.level >= self.level_limit && !self.board.is_filled() {
             "Grandmaster"
         } else {
-            self.grade.borrow().current_grade().grade
+            grade
         }
     }
 
@@ -332,22 +336,15 @@ impl Reducible for GameHard {
                     let section = (game.level / 100).min(9);
 
                     let is_promoted = game.grade.borrow_mut().add(section, removed_bombs);
-                    if is_promoted {
-                        self.sounds.borrow_mut().push(Sound::LevelUp);
-                        self.grade_animation.borrow_mut().animation.promote();
-                    }
 
                     if game.section < section {
                         game.section = section;
                         game.single_frequency = SINGLE_FREQUENCY[section];
-                        if game.section == 9 {
-                            game.fulfills_gm_condition =
-                                game.grade.borrow().fulfills_gm_condition();
-                            if !game.fulfills_gm_condition {
-                                game.board.reset();
-                                game.single_frequency = 9999;
-                                game.board.visible = Invisible;
-                            }
+                        if game.section == 9 && game.grade() == "master" {
+                            game.level = 900;
+                            game.board.reset();
+                            game.single_frequency = 9999;
+                            game.board.visible = Invisible;
                         }
                         game.until_single = SINGLE_FREQUENCY[game.section];
                     }
@@ -355,6 +352,11 @@ impl Reducible for GameHard {
                     game.board.apply_gravity();
                     let row = game.next_row();
                     game.board.feed(&row);
+
+                    if is_promoted || game.grade() == "Grandmaster" {
+                        self.sounds.borrow_mut().push(Sound::LevelUp);
+                        self.grade_animation.borrow_mut().animation.promote();
+                    }
 
                     if game.is_over() && game.board.visible == Invisible {
                         game.board.visible = InvisibleWhileAnimation;
