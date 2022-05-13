@@ -108,6 +108,25 @@ impl LazyAudio {
     }
 }
 
+#[derive(Clone, Properties, PartialEq)]
+pub struct PreviewProps {
+    pub x: f64,
+    pub y: f64,
+    pub size: f64,
+}
+
+#[function_component(Preview)]
+pub fn preview(props: &PreviewProps) -> Html {
+    let PreviewProps { x, y, size } = props.clone();
+    let x = (x as f64 * size).to_string();
+    let y = (y as f64 * size).to_string();
+    let width = size.to_string();
+    let height = width.clone();
+    html! {
+        <rect x={x} y={y} width={width} height={height} opacity="0.2" class="fill" />
+    }
+}
+
 #[derive(Clone, PartialEq, Properties)]
 pub struct Props {
     pub cell_size: f64,
@@ -136,6 +155,7 @@ pub fn game_component(props: &Props) -> Html {
         sound
     };
 
+    let remove_preview = use_state(Vec::new);
     let game = use_reducer(game::Game::new);
     let audio_context = use_ref(|| web_sys::AudioContext::new().unwrap());
     let break_sound = use_sound("/sound/break.wav", &audio_context);
@@ -158,7 +178,31 @@ pub fn game_component(props: &Props) -> Html {
     let game = cloned_game;
 
     let cloned_game = game.clone();
+    let cloned_remove_preview = remove_preview.clone();
+    let onmousemove = Callback::from(move |event: web_sys::MouseEvent| {
+        if cloned_game.is_over() || cloned_game.board.is_animating() {
+            cloned_remove_preview.set(Vec::new());
+            return;
+        }
+        let x = ((event.client_x() as f64 - left) / cell_size)
+            .max(0.)
+            .min(WIDTH as f64 - 1.) as usize;
+        let y = ((event.client_y() as f64 - top) / cell_size)
+            .max(0.)
+            .min(HEIGHT as f64 - 1.) as usize;
+        let mut board = cloned_game.board.board.clone();
+        let removed_cells = board.remove(x, y);
+        let preview = removed_cells
+            .into_iter()
+            .map(|(_, _, x, y, _)| (x as f64, y as f64))
+            .collect();
+        cloned_remove_preview.set(preview);
+    });
+
+    let cloned_game = game.clone();
+    let cloned_remove_preview = remove_preview.clone();
     let onmousedown = Callback::from(move |event: web_sys::MouseEvent| {
+        cloned_remove_preview.set(Vec::new());
         event.prevent_default();
         let x = ((event.client_x() as f64 - left) / cell_size)
             .max(0.)
@@ -170,7 +214,9 @@ pub fn game_component(props: &Props) -> Html {
     });
 
     let cloned_game = game.clone();
+    let cloned_remove_preview = remove_preview.clone();
     let ontouchstart = Callback::from(move |event: web_sys::TouchEvent| {
+        cloned_remove_preview.set(Vec::new());
         let touches = event.target_touches();
         for i in 0..touches.length() {
             if let Some(event) = touches.item(i) {
@@ -223,8 +269,15 @@ pub fn game_component(props: &Props) -> Html {
     let upper_y = (HEIGHT as f64 * cell_size / 3.).to_string();
     let lower_y = (HEIGHT as f64 * cell_size / 3. * 2.).to_string();
 
+    let preview = remove_preview.iter().map(|&(x, y)| {
+        html! {
+            <Preview x={x} y={y} size={cell_size} />
+        }
+    });
+    let score_preview = (remove_preview.len() + 1) * remove_preview.len() / 2;
+
     html! {
-        <div class="game" style={format!("top: {}px; left: {}px;", top, left)} onmousedown={onmousedown} ontouchstart={ontouchstart}>
+        <div class="game" style={format!("top: {}px; left: {}px;", top, left)} onmousedown={onmousedown} ontouchstart={ontouchstart} onmousemove={onmousemove}>
             <svg width={width.clone()} height={height.clone()}>
                 <text x={center_x.clone()} y={center_y.clone()} class="numerator" font-size={format!("{font_size_large}px")}>
                     {format!("{:03}", game.bombs_removed.min(game.bombs_limit))}
@@ -232,6 +285,7 @@ pub fn game_component(props: &Props) -> Html {
                 <text x={center_x.clone()} y={center_y} class="denominator" font-size={format!("{font_size_large}px")}>
                     {format!("{:03}", game.bombs_limit)}
                 </text>
+                {for preview}
                 <Board<WIDTH, HEIGHT>
                     floating_cells={floating_cells}
                     particles={particles}
@@ -244,7 +298,12 @@ pub fn game_component(props: &Props) -> Html {
                         <tspan font-size={format!("{font_size_large}px")}>{rank}</tspan>
                     </text>
                 }
-                <text x="0" y="0" class="text" font-size={format!("{font_size}px")}>{format!("SCORE: {}", score)}</text>
+                <text x="0" y="0" class="text" font-size={format!("{font_size}px")}>
+                    <tspan>{format!("SCORE: {}", score)}</tspan>
+                    if score_preview > 0 {
+                        <tspan dx="0.1em" opacity="0.6">{format!("+{score_preview}")}</tspan>
+                    }
+                </text>
             </svg>
         </div>
     }
