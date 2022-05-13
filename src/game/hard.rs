@@ -86,6 +86,10 @@ impl SpreadBombGenerator {
         self.generated[bomb] += 1;
         bomb
     }
+
+    fn reset(&mut self) {
+        self.generated = [0; WIDTH];
+    }
 }
 
 pub struct Grade {
@@ -384,6 +388,7 @@ impl Reducible for GameHard {
                         if game.section == 9 && game.grade() == "master" {
                             game.level = 900;
                             game.board.reset();
+                            game.generator.reset();
                             game.board.visible = Invisible;
                         }
                     }
