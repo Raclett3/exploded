@@ -35,7 +35,10 @@ impl SpreadBombGenerator {
 
     fn possibility(&self) -> Vec<usize> {
         let max = self.generated.iter().copied().max().unwrap();
-        self.generated.iter().map(|x| 1 << ((max - x) * 2)).collect()
+        self.generated
+            .iter()
+            .map(|x| 1 << ((max - x) * 2))
+            .collect()
     }
 
     fn next_double(&mut self) -> (usize, usize) {
