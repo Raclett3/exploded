@@ -14,4 +14,5 @@ pub enum GameAction {
     Feed,
     Remove(usize, usize),
     Animate,
+    Retry,
 }

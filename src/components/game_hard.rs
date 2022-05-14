@@ -1,4 +1,5 @@
 use super::board::Board;
+use super::button::Button;
 use crate::game::{self, *};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -178,6 +179,9 @@ pub fn game_component(props: &Props) -> Html {
         }
     });
 
+    let cloned_game = game.clone();
+    let onclick = Callback::from(move |_| cloned_game.dispatch(GameAction::Retry));
+
     let (floating_cells, mut sounds) = game.board.frame();
     sounds.append(&mut game.sounds());
 
@@ -236,6 +240,7 @@ pub fn game_component(props: &Props) -> Html {
             if game.is_over() && !game.board.is_animating() {
                 <rect x="0" y="0" width={width.clone()} height={height} fill="rgba(0, 0, 0, 0.5)" />
                 <text x={center_x.clone()} y={upper_y.clone()} class="text-center" font-size="1px" dominant-baseline="hanging">{"GAME OVER"}</text>
+                <Button x={WIDTH as f64 / 2.} y={HEIGHT as f64 / 3. * 2.} font_size="0.5px" onclick={onclick}>{"Retry"}</Button>
             }
             if !game.is_started {
                 <text x={center_x.clone()} y={upper_y} class="text-center" font-size="1px" dominant-baseline="hanging">{"READY"}</text>

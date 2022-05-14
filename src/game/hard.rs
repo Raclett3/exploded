@@ -367,11 +367,7 @@ impl Reducible for GameHard {
         match action {
             GameAction::Remove(x, y) => {
                 if game.is_over() {
-                    if !game.board.is_animating() {
-                        return Rc::new(GameHard::new());
-                    } else {
-                        return game.into();
-                    }
+                    return game.into();
                 }
 
                 let (removed_cells, removed_bombs) = game.board.remove(x, y);
@@ -423,6 +419,10 @@ impl Reducible for GameHard {
                     let row = game.next_row();
                     game.board.feed(&row);
                 }
+            }
+
+            GameAction::Retry => {
+                return Rc::new(GameHard::new());
             }
         }
 

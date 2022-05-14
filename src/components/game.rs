@@ -1,4 +1,5 @@
 use super::board::Board;
+use super::button::Button;
 use crate::game::{self, *};
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -230,6 +231,9 @@ pub fn game_component(props: &Props) -> Html {
         }
     });
 
+    let cloned_game = game.clone();
+    let onclick = Callback::from(move |_| cloned_game.dispatch(GameAction::Retry));
+
     let (floating_cells, sounds) = game.board.frame();
 
     if let Some(sound) = sounds.first() {
@@ -263,7 +267,6 @@ pub fn game_component(props: &Props) -> Html {
     let center_x = (WIDTH as f64 / 2.).to_string();
     let center_y = (HEIGHT as f64 / 2.).to_string();
     let upper_y = (HEIGHT as f64 / 3.).to_string();
-    let lower_y = (HEIGHT as f64 / 3. * 2.).to_string();
 
     let preview = remove_preview.iter().map(|&(x, y)| {
         html! {
@@ -277,7 +280,7 @@ pub fn game_component(props: &Props) -> Html {
             <text x={center_x.clone()} y={center_y.clone()} class="numerator" font-size="1px">
                 {format!("{:03}", game.bombs_removed.min(game.bombs_limit))}
             </text>
-            <text x={center_x.clone()} y={center_y} class="denominator" font-size="1px">
+            <text x={center_x.clone()} y={center_y.clone()} class="denominator" font-size="1px">
                 {format!("{:03}", game.bombs_limit)}
             </text>
             {for preview}
@@ -287,10 +290,11 @@ pub fn game_component(props: &Props) -> Html {
             if game.is_over() && !game.board.is_animating() {
                 <rect x="0" y="0" width={width} height={height} fill="rgba(0, 0, 0, 0.5)" />
                 <text x={center_x.clone()} y={upper_y} class="text-center" font-size="1px" dominant-baseline="hanging">{"GAME OVER"}</text>
-                <text x={center_x} y={lower_y} class="text-center" dominant-baseline="baseline">
+                <text x={center_x} y={center_y} class="text-center" dominant-baseline="baseline">
                     <tspan font-size="0.5px">{"RANK:"}</tspan>
                     <tspan font-size="1px">{rank}</tspan>
                 </text>
+                <Button x={WIDTH as f64 / 2.} y={HEIGHT as f64 / 3. * 2.} font_size="0.5px" onclick={onclick}>{"Retry"}</Button>
             }
             <text x="0" y="0" class="text" font-size="0.5px">
                 <tspan>{format!("SCORE: {}", score)}</tspan>

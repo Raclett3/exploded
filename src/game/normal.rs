@@ -93,14 +93,7 @@ impl Reducible for Game {
         match action {
             GameAction::Remove(x, y) => {
                 if game.is_over() {
-                    if !game.board.is_animating() {
-                        let mut game = Game::new();
-                        let row = game.next_row();
-                        game.board.feed(&row);
-                        return Rc::new(game);
-                    } else {
-                        return game.into();
-                    }
+                    return game.into();
                 }
 
                 let (removed_cells, removed_bombs) = game.board.remove(x, y);
@@ -124,6 +117,13 @@ impl Reducible for Game {
             GameAction::Animate => {
                 self.board.animate();
                 self.score_animator.borrow_mut().animate();
+            }
+
+            GameAction::Retry => {
+                let mut game = Game::new();
+                let row = game.next_row();
+                game.board.feed(&row);
+                return Rc::new(game);
             }
         }
 
