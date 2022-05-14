@@ -28,11 +28,9 @@ pub fn app() -> Html {
     let window = web_sys::window().unwrap();
     let width = window.inner_width().unwrap().as_f64().unwrap();
     let height = window.inner_height().unwrap().as_f64().unwrap();
-    let (resized_width, resized_height) =
+    let (resized_width, _) =
         fit_with_aspect_ratio(width - 20., height - 20., WIDTH as f64, HEIGHT as f64);
 
-    let top = (height - resized_height) / 2.;
-    let left = (width - resized_width) / 2.;
     let cell_size = resized_width as f64 / WIDTH as f64;
 
     let cloned_difficulty = difficulty.clone();
@@ -54,10 +52,10 @@ pub fn app() -> Html {
             </div>
         },
         Some(Difficulty::Normal) => html! {
-            <Game cell_size={cell_size} left={left} top={top} />
+            <Game cell_size={cell_size} />
         },
         Some(Difficulty::Hard) => html! {
-            <GameHard cell_size={cell_size} left={left} top={top} />
+            <GameHard cell_size={cell_size} />
         },
     }
 }

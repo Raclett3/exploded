@@ -1,5 +1,5 @@
 .stroke {
-    stroke-width: 1px;
+    stroke-width: 0.02px;
     stroke: white;
     fill: none;
 }
@@ -14,19 +14,18 @@ body {
     margin: 0px;
 }
 
-.game {
+svg {
+    cursor: pointer;
     position: absolute;
     touch-action: manipulation;
-}
-
-svg {
-    border: 1px solid white;
-    cursor: pointer;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
 }
 
 .text {
     stroke: #000;
-    stroke-width: 1px;
+    stroke-width: 0.01px;
     fill: #FFF;
     dominant-baseline: hanging;
     font-family: "Consolas", "Monaco", monospace;
@@ -42,7 +41,7 @@ svg {
 
 .text-center {
     stroke: #000;
-    stroke-width: 1px;
+    stroke-width: 0.01px;
     fill: #FFF;
     dominant-baseline: middle;
     text-anchor: middle;
@@ -50,8 +49,6 @@ svg {
 }
 
 .numerator {
-    stroke: #000;
-    stroke-width: 1px;
     fill: #FFF;
     opacity: 0.8;
     dominant-baseline: baseline;
@@ -60,8 +57,6 @@ svg {
 }
 
 .denominator {
-    stroke: #000;
-    stroke-width: 1px;
     fill: #FFF;
     opacity: 0.5;
     dominant-baseline: hanging;

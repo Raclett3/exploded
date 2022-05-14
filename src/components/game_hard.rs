@@ -98,17 +98,11 @@ impl LazyAudio {
 #[derive(Clone, PartialEq, Properties)]
 pub struct Props {
     pub cell_size: f64,
-    pub left: f64,
-    pub top: f64,
 }
 
 #[function_component(GameHard)]
 pub fn game_component(props: &Props) -> Html {
-    let Props {
-        cell_size,
-        left,
-        top,
-    } = props.clone();
+    let Props { cell_size } = props.clone();
     let use_sound = |src: &str, context: &Rc<web_sys::AudioContext>| {
         let cloned_context = context.clone();
         let sound = use_ref(|| LazyAudio::new(src, cloned_context));
@@ -123,6 +117,7 @@ pub fn game_component(props: &Props) -> Html {
         sound
     };
 
+    let board_ref = use_node_ref();
     let game = use_reducer(game::GameHard::new);
     let audio_context = use_ref(|| web_sys::AudioContext::new().unwrap());
     let break_sound = use_sound("/sound/break.wav", &audio_context);
@@ -141,12 +136,18 @@ pub fn game_component(props: &Props) -> Html {
         (),
     );
 
+    let position = board_ref.cast::<web_sys::Element>().map(|board| {
+        let rect = board.get_bounding_client_rect();
+        (rect.x(), rect.y())
+    });
+
     let window = web_sys::window().unwrap();
     let game = cloned_game;
 
     let cloned_game = game.clone();
     let onmousedown = Callback::from(move |event: web_sys::MouseEvent| {
         event.prevent_default();
+        let (left, top) = position.unwrap();
         let x = ((event.client_x() as f64 - left) / cell_size)
             .max(0.)
             .min(WIDTH as f64 - 1.) as usize;
@@ -157,7 +158,12 @@ pub fn game_component(props: &Props) -> Html {
     });
 
     let cloned_game = game.clone();
+    let cloned_board_ref = board_ref.clone();
     let ontouchstart = Callback::from(move |event: web_sys::TouchEvent| {
+        let board = cloned_board_ref.cast::<web_sys::Element>().unwrap();
+        let rect = board.get_bounding_client_rect();
+        let left = rect.x();
+        let top = rect.y();
         let touches = event.target_touches();
         for i in 0..touches.length() {
             if let Some(event) = touches.item(i) {
@@ -197,18 +203,14 @@ pub fn game_component(props: &Props) -> Html {
         (onmousedown, Callback::from(|_| ()))
     };
 
-    let font_size = cell_size * 0.5;
-    let font_size_large = font_size * 2.;
-
-    let width = (WIDTH as f64 * cell_size).to_string();
-    let height = (HEIGHT as f64 * cell_size).to_string();
-    let center_x = (WIDTH as f64 * cell_size / 2.).to_string();
-    let center_y = (HEIGHT as f64 * cell_size / 2.).to_string();
-    let upper_y = (HEIGHT as f64 * cell_size / 3.).to_string();
+    let width = WIDTH.to_string();
+    let height = HEIGHT.to_string();
+    let center_x = (WIDTH as f64 / 2.).to_string();
+    let center_y = (HEIGHT as f64 / 2.).to_string();
+    let upper_y = (HEIGHT as f64 / 3.).to_string();
 
     let until_single = (game.until_single + 1) as f64 / (game.single_frequency) as f64;
-    let indicator_width = (WIDTH as f64 * cell_size * until_single).to_string();
-    let indicator_height = (cell_size * 0.1).to_string();
+    let indicator_width = (WIDTH as f64 * until_single).to_string();
     let indicator_color = if game.until_single == 0 {
         "#FF2222"
     } else {
@@ -221,39 +223,36 @@ pub fn game_component(props: &Props) -> Html {
     let debug = cfg!(debug_assertions);
 
     html! {
-        <div class="game" style={format!("top: {}px; left: {}px;", top, left)} onmousedown={onmousedown} ontouchstart={ontouchstart}>
-            <svg width={width.clone()} height={height.clone()}>
-                <text x={center_x.clone()} y={center_y.clone()} class="numerator" font-size={format!("{font_size_large}px")}>
-                    {format!("{:03}", game.level.min(game.level_limit))}
-                </text>
-                <text x={center_x.clone()} y={center_y} class="denominator" font-size={format!("{font_size_large}px")}>
-                    {format!("{:03}", game.level_limit)}
-                </text>
-                <Board<WIDTH, HEIGHT>
-                    floating_cells={floating_cells}
-                    particles={particles}
-                    cell_size={cell_size} />
-                if game.is_over() && !game.board.is_animating() {
-                    <rect x="0" y="0" width={width.clone()} height={height} fill="rgba(0, 0, 0, 0.5)" />
-                    <text x={center_x.clone()} y={upper_y.clone()} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"GAME OVER"}</text>
+        <svg style={format!("transform: scale({cell_size});")} width={width.clone()} height={height.clone()} onmousedown={onmousedown} ontouchstart={ontouchstart} ref={board_ref}>
+            <text x={center_x.clone()} y={center_y.clone()} class="numerator" font-size="1px">
+                {format!("{:03}", game.level.min(game.level_limit))}
+            </text>
+            <text x={center_x.clone()} y={center_y} class="denominator" font-size="1px">
+                {format!("{:03}", game.level_limit)}
+            </text>
+            <Board<WIDTH, HEIGHT>
+                floating_cells={floating_cells}
+                particles={particles} />
+            if game.is_over() && !game.board.is_animating() {
+                <rect x="0" y="0" width={width.clone()} height={height} fill="rgba(0, 0, 0, 0.5)" />
+                <text x={center_x.clone()} y={upper_y.clone()} class="text-center" font-size="1px" dominant-baseline="hanging">{"GAME OVER"}</text>
+            }
+            if !game.is_started {
+                <text x={center_x.clone()} y={upper_y} class="text-center" font-size="1px" dominant-baseline="hanging">{"READY"}</text>
+            }
+            if game.single_frequency < 100 {
+                <rect x="0" y="0" width={indicator_width} height="0.1" fill={indicator_color} />
+            }
+            <text x="0" y="1px" transform={format!("scale({grade_zoom_rate})")} class="grade">
+                <tspan font-size="1px">{&grade[0..1]}</tspan>
+                <tspan font-size="0.5px">{&grade[1..]}</tspan>
+                if debug {
+                    <tspan font-size="0.5px">{format!("({a}/{b})")}</tspan>
                 }
-                if !game.is_started {
-                    <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"READY"}</text>
-                }
-                if game.single_frequency < 100 {
-                    <rect x="0" y="0" width={indicator_width} height={indicator_height} fill={indicator_color} />
-                }
-                <text x="0" y={format!("{font_size_large}px")} transform={format!("scale({grade_zoom_rate})")} class="grade">
-                    <tspan font-size={format!("{font_size_large}px")}>{&grade[0..1]}</tspan>
-                    <tspan font-size={format!("{font_size}px")}>{&grade[1..]}</tspan>
-                    if debug {
-                        <tspan font-size={format!("{font_size}px")}>{format!("({a}/{b})")}</tspan>
-                    }
-                </text>
-                <text x={width.clone()} y={format!("{font_size_large}px")} text-anchor="end" class="grade">
-                    <tspan font-size={format!("{font_size}px")}>{timer}</tspan>
-                </text>
-            </svg>
-        </div>
+            </text>
+            <text x={width.clone()} y="1" text-anchor="end" class="grade" style="background-color: #900;">
+                <tspan font-size="0.5px">{timer}</tspan>
+            </text>
+        </svg>
     }
 }

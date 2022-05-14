@@ -9,7 +9,6 @@ pub struct Props {
     pub y: f64,
     pub opacity: f64,
     pub expansion: f64,
-    pub size: f64,
 }
 
 #[function_component(Particle)]
@@ -20,15 +19,12 @@ pub fn particle(props: &Props) -> Html {
         x,
         y,
         opacity,
-        size,
         expansion,
     } = props.clone();
-    let x = x as f64 * size;
-    let y = y as f64 * size;
     let opacity = opacity.to_string();
-    let cx = x + size / 2.;
-    let cy = y + size / 2.;
-    let r = size / 2. * expansion;
+    let cx = x + 0.5;
+    let cy = y + 0.5;
+    let r = 0.5 * expansion;
 
     match cell_type {
         CellType::Bomb => {
@@ -36,7 +32,7 @@ pub fn particle(props: &Props) -> Html {
             let cy = cy.to_string();
             let r = r.to_string();
             html! {
-                <circle cx={cx} cy={cy} r={r} opacity={opacity} stroke={color} stroke-width="1px" fill="none" />
+                <circle cx={cx} cy={cy} r={r} opacity={opacity} stroke={color} stroke-width="0.01" fill="none" />
             }
         }
         CellType::Tile => {

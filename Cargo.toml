@@ -17,6 +17,7 @@ features = [
     "AudioContext",
     "AudioDestinationNode",
     "AudioBufferSourceNode",
+    "DomRect",
     "Navigator",
     "Response",
     "Touch",

@@ -112,35 +112,26 @@ impl LazyAudio {
 pub struct PreviewProps {
     pub x: f64,
     pub y: f64,
-    pub size: f64,
 }
 
 #[function_component(Preview)]
 pub fn preview(props: &PreviewProps) -> Html {
-    let PreviewProps { x, y, size } = props.clone();
-    let x = (x as f64 * size).to_string();
-    let y = (y as f64 * size).to_string();
-    let width = size.to_string();
-    let height = width.clone();
+    let PreviewProps { x, y } = props.clone();
+    let x = x.to_string();
+    let y = y.to_string();
     html! {
-        <rect x={x} y={y} width={width} height={height} opacity="0.2" class="fill" />
+        <rect x={x} y={y} width="1" height="1" opacity="0.2" class="fill" />
     }
 }
 
 #[derive(Clone, PartialEq, Properties)]
 pub struct Props {
     pub cell_size: f64,
-    pub left: f64,
-    pub top: f64,
 }
 
 #[function_component(Game)]
 pub fn game_component(props: &Props) -> Html {
-    let Props {
-        cell_size,
-        left,
-        top,
-    } = props.clone();
+    let Props { cell_size } = props.clone();
     let use_sound = |src: &str, context: &Rc<web_sys::AudioContext>| {
         let cloned_context = context.clone();
         let sound = use_ref(|| LazyAudio::new(src, cloned_context));
@@ -156,6 +147,7 @@ pub fn game_component(props: &Props) -> Html {
     };
 
     let remove_preview = use_state(Vec::new);
+    let board_ref = use_node_ref();
     let game = use_reducer(game::Game::new);
     let audio_context = use_ref(|| web_sys::AudioContext::new().unwrap());
     let break_sound = use_sound("/sound/break.wav", &audio_context);
@@ -176,10 +168,15 @@ pub fn game_component(props: &Props) -> Html {
 
     let window = web_sys::window().unwrap();
     let game = cloned_game;
+    let position = board_ref.cast::<web_sys::Element>().map(|board| {
+        let rect = board.get_bounding_client_rect();
+        (rect.x(), rect.y())
+    });
 
     let cloned_game = game.clone();
     let cloned_remove_preview = remove_preview.clone();
     let onmousemove = Callback::from(move |event: web_sys::MouseEvent| {
+        let (left, top) = position.unwrap();
         if cloned_game.is_over() || cloned_game.board.is_animating() {
             cloned_remove_preview.set(Vec::new());
             return;
@@ -202,6 +199,7 @@ pub fn game_component(props: &Props) -> Html {
     let cloned_game = game.clone();
     let cloned_remove_preview = remove_preview.clone();
     let onmousedown = Callback::from(move |event: web_sys::MouseEvent| {
+        let (left, top) = position.unwrap();
         cloned_remove_preview.set(Vec::new());
         event.prevent_default();
         let x = ((event.client_x() as f64 - left) / cell_size)
@@ -217,6 +215,7 @@ pub fn game_component(props: &Props) -> Html {
     let cloned_remove_preview = remove_preview.clone();
     let ontouchstart = Callback::from(move |event: web_sys::TouchEvent| {
         cloned_remove_preview.set(Vec::new());
+        let (left, top) = position.unwrap();
         let touches = event.target_touches();
         for i in 0..touches.length() {
             if let Some(event) = touches.item(i) {
@@ -259,52 +258,46 @@ pub fn game_component(props: &Props) -> Html {
         (onmousedown, Callback::from(|_| ()))
     };
 
-    let font_size = cell_size * 0.5;
-    let font_size_large = font_size * 2.;
-
-    let width = (WIDTH as f64 * cell_size).to_string();
-    let height = (HEIGHT as f64 * cell_size).to_string();
-    let center_x = (WIDTH as f64 * cell_size / 2.).to_string();
-    let center_y = (HEIGHT as f64 * cell_size / 2.).to_string();
-    let upper_y = (HEIGHT as f64 * cell_size / 3.).to_string();
-    let lower_y = (HEIGHT as f64 * cell_size / 3. * 2.).to_string();
+    let width = WIDTH.to_string();
+    let height = HEIGHT.to_string();
+    let center_x = (WIDTH as f64 / 2.).to_string();
+    let center_y = (HEIGHT as f64 / 2.).to_string();
+    let upper_y = (HEIGHT as f64 / 3.).to_string();
+    let lower_y = (HEIGHT as f64 / 3. * 2.).to_string();
 
     let preview = remove_preview.iter().map(|&(x, y)| {
         html! {
-            <Preview x={x} y={y} size={cell_size} />
+            <Preview x={x} y={y} />
         }
     });
     let score_preview = (remove_preview.len() + 1) * remove_preview.len() / 2;
 
     html! {
-        <div class="game" style={format!("top: {}px; left: {}px;", top, left)} onmousedown={onmousedown} ontouchstart={ontouchstart} onmousemove={onmousemove}>
-            <svg width={width.clone()} height={height.clone()}>
-                <text x={center_x.clone()} y={center_y.clone()} class="numerator" font-size={format!("{font_size_large}px")}>
-                    {format!("{:03}", game.bombs_removed.min(game.bombs_limit))}
+        <svg style={format!("transform: scale({cell_size});")} width={width.clone()} height={height.clone()} onmousedown={onmousedown} ontouchstart={ontouchstart} onmousemove={onmousemove} ref={board_ref}>
+            <text x={center_x.clone()} y={center_y.clone()} class="numerator" font-size="1px">
+                {format!("{:03}", game.bombs_removed.min(game.bombs_limit))}
+            </text>
+            <text x={center_x.clone()} y={center_y} class="denominator" font-size="1px">
+                {format!("{:03}", game.bombs_limit)}
+            </text>
+            {for preview}
+            <Board<WIDTH, HEIGHT>
+                floating_cells={floating_cells}
+                particles={particles} />
+            if game.is_over() && !game.board.is_animating() {
+                <rect x="0" y="0" width={width} height={height} fill="rgba(0, 0, 0, 0.5)" />
+                <text x={center_x.clone()} y={upper_y} class="text-center" font-size="1px" dominant-baseline="hanging">{"GAME OVER"}</text>
+                <text x={center_x} y={lower_y} class="text-center" dominant-baseline="baseline">
+                    <tspan font-size="0.5px">{"RANK:"}</tspan>
+                    <tspan font-size="1px">{rank}</tspan>
                 </text>
-                <text x={center_x.clone()} y={center_y} class="denominator" font-size={format!("{font_size_large}px")}>
-                    {format!("{:03}", game.bombs_limit)}
-                </text>
-                {for preview}
-                <Board<WIDTH, HEIGHT>
-                    floating_cells={floating_cells}
-                    particles={particles}
-                    cell_size={cell_size} />
-                if game.is_over() && !game.board.is_animating() {
-                    <rect x="0" y="0" width={width} height={height} fill="rgba(0, 0, 0, 0.5)" />
-                    <text x={center_x.clone()} y={upper_y} class="text-center" font-size={format!("{font_size_large}px")} dominant-baseline="hanging">{"GAME OVER"}</text>
-                    <text x={center_x} y={lower_y} class="text-center" dominant-baseline="baseline">
-                        <tspan font-size={format!("{font_size}px")}>{"RANK:"}</tspan>
-                        <tspan font-size={format!("{font_size_large}px")}>{rank}</tspan>
-                    </text>
+            }
+            <text x="0" y="0" class="text" font-size="0.5px">
+                <tspan>{format!("SCORE: {}", score)}</tspan>
+                if score_preview > 0 {
+                    <tspan dx="0.1em" opacity="0.6">{format!("+{score_preview}")}</tspan>
                 }
-                <text x="0" y="0" class="text" font-size={format!("{font_size}px")}>
-                    <tspan>{format!("SCORE: {}", score)}</tspan>
-                    if score_preview > 0 {
-                        <tspan dx="0.1em" opacity="0.6">{format!("+{score_preview}")}</tspan>
-                    }
-                </text>
-            </svg>
-        </div>
+            </text>
+        </svg>
     }
 }
