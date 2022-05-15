@@ -96,38 +96,45 @@ pub struct Grade {
     grade: &'static str,
     decay_rate: usize,
     required_score: isize,
+    score_offset: usize,
 }
 
 impl Grade {
-    const fn new(grade: &'static str, decay_rate: usize, required_score: isize) -> Grade {
+    const fn new(
+        grade: &'static str,
+        decay_rate: usize,
+        required_score: isize,
+        score_offset: usize,
+    ) -> Grade {
         Grade {
             grade,
             decay_rate,
             required_score,
+            score_offset,
         }
     }
 }
 
 static RANKS: [Grade; 19] = [
-    Grade::new("C3", 120, 75),
-    Grade::new("C2", 90, 75),
-    Grade::new("C1", 90, 100),
-    Grade::new("B3", 75, 85),
-    Grade::new("B2", 75, 85),
-    Grade::new("B1", 75, 130),
-    Grade::new("A3", 60, 100),
-    Grade::new("A2", 60, 100),
-    Grade::new("A1", 60, 200),
-    Grade::new("S1", 50, 150),
-    Grade::new("S2", 45, 150),
-    Grade::new("S3", 40, 150),
-    Grade::new("S4", 35, 150),
-    Grade::new("S5", 30, 150),
-    Grade::new("S6", 25, 150),
-    Grade::new("S7", 20, 200),
-    Grade::new("S8", 15, 200),
-    Grade::new("S9", 10, 250),
-    Grade::new("master", 10, 1000000),
+    Grade::new("C3", 120, 75, 0),
+    Grade::new("C2", 90, 75, 0),
+    Grade::new("C1", 90, 100, 0),
+    Grade::new("B3", 75, 85, 0),
+    Grade::new("B2", 75, 85, 0),
+    Grade::new("B1", 75, 130, 0),
+    Grade::new("A3", 60, 100, 1),
+    Grade::new("A2", 60, 100, 1),
+    Grade::new("A1", 60, 200, 1),
+    Grade::new("S1", 50, 200, 2),
+    Grade::new("S2", 45, 200, 2),
+    Grade::new("S3", 40, 200, 2),
+    Grade::new("S4", 35, 200, 3),
+    Grade::new("S5", 30, 200, 3),
+    Grade::new("S6", 25, 200, 3),
+    Grade::new("S7", 20, 200, 4),
+    Grade::new("S8", 15, 200, 4),
+    Grade::new("S9", 10, 250, 5),
+    Grade::new("master", 10, 1000000, 1000),
 ];
 
 pub struct GradeManager {
@@ -173,7 +180,8 @@ impl GradeManager {
             return false;
         }
 
-        let score = sqrt(bombs * bombs * bombs) * (section / 2 + 1);
+        let score_offset = self.current_grade().score_offset;
+        let score = (sqrt(bombs * bombs * bombs) * (section / 2 + 1)).saturating_sub(score_offset);
 
         self.score += score as isize;
         self.max_chain_per_section[section] = self.max_chain_per_section[section].max(bombs);
@@ -313,10 +321,6 @@ impl GameHard {
     }
 
     pub fn next_row(&mut self) -> [CellType; WIDTH] {
-        if self.level % 100 != 99 && self.level != 998 && self.grade() != "master" {
-            self.level += 1;
-        }
-
         if self.until_single == 0 {
             self.until_single = self.single_frequency - 1;
             let bomb = self.generator.next_single();
