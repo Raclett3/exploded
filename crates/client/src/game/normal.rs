@@ -1,6 +1,6 @@
 use super::{animation::*, board::AnimatedBoard, GameAction, WIDTH};
 use crate::animation::*;
-use crate::board::CellType;
+use common::board::CellType;
 use rand::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;

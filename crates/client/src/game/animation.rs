@@ -1,5 +1,5 @@
 use crate::animation::*;
-use crate::board::CellType;
+use common::board::CellType;
 use std::cell::RefCell;
 
 #[derive(Clone, PartialEq)]

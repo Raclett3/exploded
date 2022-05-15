@@ -4,7 +4,7 @@ use super::{
     GameAction, WIDTH,
 };
 use crate::animation::{Animation, FloatAnimator};
-use crate::board::CellType;
+use common::board::CellType;
 use rand::prelude::*;
 use std::cell::RefCell;
 use std::rc::Rc;

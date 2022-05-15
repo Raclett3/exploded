@@ -1,5 +1,4 @@
 mod animation;
-mod board;
 mod components;
 mod game;
 

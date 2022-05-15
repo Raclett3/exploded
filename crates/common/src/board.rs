@@ -43,6 +43,12 @@ pub struct Board<const WIDTH: usize, const HEIGHT: usize> {
     generated_cells: usize,
 }
 
+impl<const WIDTH: usize, const HEIGHT: usize> Default for Board<WIDTH, HEIGHT> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const WIDTH: usize, const HEIGHT: usize> Board<WIDTH, HEIGHT> {
     pub fn new() -> Self {
         Board {

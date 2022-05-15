@@ -1,6 +1,6 @@
 use super::{animation::*, HEIGHT, WIDTH};
 use crate::animation::*;
-use crate::board::{Board, Cell, CellType};
+use common::board::{Board, Cell, CellType};
 use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::rc::Rc;

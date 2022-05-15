@@ -1,4 +1,4 @@
-use crate::board::CellType;
+use common::board::CellType;
 use yew::prelude::*;
 
 #[derive(Clone, Properties, PartialEq)]
