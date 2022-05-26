@@ -502,6 +502,9 @@ dependencies = [
  "actix",
  "actix-web",
  "actix-web-actors",
+ "common",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
