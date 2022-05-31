@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(tag = "type")]
 pub enum RequestMessage {
     Join,
@@ -8,7 +8,7 @@ pub enum RequestMessage {
     Remove { x: usize, y: usize },
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(tag = "type")]
 pub enum ResponseMessage {
     Ready,

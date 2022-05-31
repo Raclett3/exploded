@@ -1,5 +1,6 @@
 use super::game::Game;
 use super::game_hard::GameHard;
+use super::game_online::GameOnline;
 use crate::game::{HEIGHT, WIDTH};
 use yew::prelude::*;
 
@@ -17,14 +18,15 @@ fn fit_with_aspect_ratio(
 }
 
 #[derive(Clone, Copy)]
-enum Difficulty {
+enum GameMode {
     Normal,
     Hard,
+    Online,
 }
 
 #[function_component(App)]
 pub fn app() -> Html {
-    let difficulty: UseStateHandle<Option<Difficulty>> = use_state(|| None);
+    let difficulty: UseStateHandle<Option<GameMode>> = use_state(|| None);
     let window = web_sys::window().unwrap();
     let width = window.inner_width().unwrap().as_f64().unwrap();
     let height = window.inner_height().unwrap().as_f64().unwrap();
@@ -34,7 +36,7 @@ pub fn app() -> Html {
     let cell_size = resized_width as f64 / WIDTH as f64;
 
     let cloned_difficulty = difficulty.clone();
-    let select_difficulty = |diff: Difficulty| {
+    let select_difficulty = |diff: GameMode| {
         let cloned_difficulty = cloned_difficulty.clone();
         Callback::from(move |event: web_sys::MouseEvent| {
             event.prevent_default();
@@ -47,15 +49,19 @@ pub fn app() -> Html {
             <div class="app">
                 <h1>{"Exploded"}</h1>
                 <h2>{"Select a game mode"}</h2>
-                <h3><a href="#" onclick={select_difficulty(Difficulty::Normal)}>{"NORMAL"}</a></h3>
-                <h3><a href="#" onclick={select_difficulty(Difficulty::Hard)}>{"MASTER"}</a></h3>
+                <h3><a href="#" onclick={select_difficulty(GameMode::Normal)}>{"NORMAL"}</a></h3>
+                <h3><a href="#" onclick={select_difficulty(GameMode::Hard)}>{"MASTER"}</a></h3>
+                <h3><a href="#" onclick={select_difficulty(GameMode::Online)}>{"ONLINE"}</a></h3>
             </div>
         },
-        Some(Difficulty::Normal) => html! {
+        Some(GameMode::Normal) => html! {
             <Game cell_size={cell_size} />
         },
-        Some(Difficulty::Hard) => html! {
+        Some(GameMode::Hard) => html! {
             <GameHard cell_size={cell_size} />
+        },
+        Some(GameMode::Online) => html! {
+            <GameOnline cell_size={cell_size} />
         },
     }
 }
