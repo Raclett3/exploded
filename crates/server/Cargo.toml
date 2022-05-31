@@ -9,5 +9,5 @@ actix = "0.13"
 actix-web = "4"
 actix-web-actors = "4"
 rand = "0.8"
-serde = { version = "1.0", features = ["derive"] }
+serde = "1.0"
 serde_json = "1"

@@ -1,8 +1,8 @@
 use actix::prelude::*;
 use actix_web_actors::ws;
 use common::board::{Board, CellType};
+use common::model::{RequestMessage, ResponseMessage};
 use rand::prelude::*;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
@@ -123,14 +123,6 @@ impl BoardManager {
     }
 }
 
-#[derive(Deserialize)]
-#[serde(tag = "type")]
-enum IncomingMessage {
-    Join,
-    Leave,
-    Remove { x: usize, y: usize },
-}
-
 struct Game {
     participants: HashMap<Addr<Player>, BoardManager>,
 }
@@ -169,9 +161,9 @@ impl Handler<Remove> for Game {
         };
         let removed_cells = board.remove(x, y);
         if removed_cells > 0 {
-            player.do_send(OutgoingMessage::Remove { x, y });
+            player.do_send(Response(ResponseMessage::Remove { x, y }));
             let row = board.feed(false).map(|x| x == CellType::Bomb);
-            player.do_send(OutgoingMessage::Feed { row });
+            player.do_send(Response(ResponseMessage::Feed { row: row.to_vec() }));
         }
     }
 }
@@ -187,7 +179,7 @@ impl Handler<Feed> for Game {
         let Feed(player) = msg;
         if let Some(board) = self.participants.get_mut(&player) {
             let row = board.feed(false).map(|x| x == CellType::Bomb);
-            player.do_send(OutgoingMessage::Feed { row });
+            player.do_send(Response(ResponseMessage::Feed { row: row.to_vec() }));
         }
     }
 }
@@ -293,7 +285,7 @@ impl Handler<JoinGame> for Player {
 
     fn handle(&mut self, msg: JoinGame, ctx: &mut Self::Context) {
         let JoinGame(game) = msg;
-        if let Ok(json) = serde_json::to_string(&OutgoingMessage::Ready) {
+        if let Ok(json) = serde_json::to_string(&ResponseMessage::Ready) {
             ctx.text(json);
         }
 
@@ -320,15 +312,15 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Player {
             Ok(ws::Message::Text(text)) => {
                 let text_slice: &[u8] = text.as_ref();
                 let json = String::from_utf8(text_slice.to_vec()).unwrap();
-                let msg = if let Ok(msg) = serde_json::from_str::<IncomingMessage>(&json) {
+                let msg = if let Ok(msg) = serde_json::from_str::<RequestMessage>(&json) {
                     msg
                 } else {
                     return;
                 };
                 match msg {
-                    IncomingMessage::Join => self.matchmaker.do_send(Join(ctx.address())),
-                    IncomingMessage::Leave => self.matchmaker.do_send(Leave(ctx.address())),
-                    IncomingMessage::Remove { x, y } => {
+                    RequestMessage::Join => self.matchmaker.do_send(Join(ctx.address())),
+                    RequestMessage::Leave => self.matchmaker.do_send(Leave(ctx.address())),
+                    RequestMessage::Remove { x, y } => {
                         if let Some(game) = &mut self.game {
                             let player = ctx.address();
                             game.do_send(Remove {
@@ -345,20 +337,17 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for Player {
     }
 }
 
-#[derive(Serialize, Message)]
-#[serde(tag = "type")]
+#[derive(Message)]
 #[rtype(result = "()")]
-enum OutgoingMessage {
-    Ready,
-    Remove { x: usize, y: usize },
-    Feed { row: [bool; WIDTH] },
-}
+struct Response(ResponseMessage);
 
-impl Handler<OutgoingMessage> for Player {
+impl Handler<Response> for Player {
     type Result = ();
 
-    fn handle(&mut self, msg: OutgoingMessage, ctx: &mut Self::Context) {
-        if let Ok(msg) = serde_json::to_string(&msg) {
+    fn handle(&mut self, msg: Response, ctx: &mut Self::Context) {
+        let Response(res) = msg;
+
+        if let Ok(msg) = serde_json::to_string(&res) {
             ctx.text(msg);
         }
     }
