@@ -229,7 +229,9 @@ impl GradeAnimation {
     }
 }
 
-impl Animation<f64> for GradeAnimation {
+impl Animation for GradeAnimation {
+    type Frame = f64;
+
     fn advance_frames(&mut self, frames: usize) {
         self.frame_since_promotion += frames;
     }
@@ -261,7 +263,9 @@ impl Timer {
     }
 }
 
-impl Animation<String> for Timer {
+impl Animation for Timer {
+    type Frame = String;
+
     fn advance_frames(&mut self, frames: usize) {
         self.elapsed_frames += frames;
     }
@@ -289,10 +293,10 @@ pub struct GameHard {
     pub section: usize,
     pub level: usize,
     pub level_limit: usize,
-    pub timer: Rc<RefCell<FloatAnimator<String, Timer>>>,
+    pub timer: Rc<RefCell<FloatAnimator<Timer>>>,
     pub is_started: bool,
     sounds: Rc<RefCell<Vec<Sound>>>,
-    grade_animation: Rc<RefCell<FloatAnimator<f64, GradeAnimation>>>,
+    grade_animation: Rc<RefCell<FloatAnimator<GradeAnimation>>>,
 }
 
 impl GameHard {

@@ -53,7 +53,7 @@ pub struct Game {
     pub score: usize,
     pub bombs_removed: usize,
     pub bombs_limit: usize,
-    pub score_animator: Rc<RefCell<FloatAnimator<usize, NumberAnimator>>>,
+    pub score_animator: Rc<RefCell<FloatAnimator<NumberAnimator>>>,
 }
 
 impl Game {

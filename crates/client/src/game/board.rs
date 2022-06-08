@@ -30,7 +30,9 @@ impl<T> SingleAnimation<T> {
     }
 }
 
-impl<T> Animation<Vec<T>> for SingleAnimation<T> {
+impl<T> Animation for SingleAnimation<T> {
+    type Frame = Vec<T>;
+
     fn current_frame(&self) -> Vec<T> {
         std::mem::take(self.target.borrow_mut().as_mut())
     }
@@ -50,13 +52,11 @@ pub struct AnimatedBoard {
     pub animator: Rc<
         RefCell<
             FloatAnimator<
-                Option<((Vec<FloatingCell>, Vec<Sound>), Vec<ParticleAnimator>)>,
                 AnimationStream<((Vec<FloatingCell>, Vec<Sound>), Vec<ParticleAnimator>)>,
             >,
         >,
     >,
-    pub particles:
-        Rc<RefCell<FloatAnimator<Vec<FloatingParticle>, EndlessAnimator<FloatingParticle>>>>,
+    pub particles: Rc<RefCell<FloatAnimator<EndlessAnimator<FloatingParticle>>>>,
 }
 
 impl AnimatedBoard {
@@ -101,7 +101,7 @@ impl AnimatedBoard {
                             0,
                             10,
                             cell_type,
-                        )) as Box<dyn Animation<FloatingCell>>
+                        )) as Box<dyn Animation<Frame = FloatingCell>>
                     })
                 })
             })
@@ -167,7 +167,7 @@ impl AnimatedBoard {
                             0,
                             1,
                             cell_type,
-                        )) as Box<dyn Animation<FloatingCell>>
+                        )) as Box<dyn Animation<Frame = FloatingCell>>
                     })
                 })
             })
@@ -180,7 +180,7 @@ impl AnimatedBoard {
                     dist * 3,
                     10,
                     cell_type,
-                )) as Box<dyn Animation<FloatingCell>>
+                )) as Box<dyn Animation<Frame = FloatingCell>>
             }))
             .collect();
         let mut remove_sounds = dists
@@ -233,7 +233,7 @@ impl AnimatedBoard {
                             0,
                             dist * 5 + 1,
                             cell_type,
-                        )) as Box<dyn Animation<FloatingCell>>
+                        )) as Box<dyn Animation<Frame = FloatingCell>>
                     })
                 })
             })
@@ -300,7 +300,7 @@ impl AnimatedBoard {
                             (HEIGHT - y - 1) * 10,
                             10,
                             cell_type,
-                        )) as Box<dyn Animation<FloatingCell>>
+                        )) as Box<dyn Animation<Frame = FloatingCell>>
                     })
                 })
             })

@@ -49,7 +49,9 @@ impl CellAnimator {
     }
 }
 
-impl Animation<FloatingCell> for CellAnimator {
+impl Animation for CellAnimator {
+    type Frame = FloatingCell;
+
     fn advance_frames(&mut self, frames: usize) {
         self.elapsed += frames;
     }
@@ -123,7 +125,9 @@ impl ParticleAnimator {
     }
 }
 
-impl Animation<FloatingParticle> for ParticleAnimator {
+impl Animation for ParticleAnimator {
+    type Frame = FloatingParticle;
+
     fn advance_frames(&mut self, frames: usize) {
         self.elapsed += frames;
     }
@@ -162,7 +166,9 @@ impl NumberAnimator {
     }
 }
 
-impl Animation<usize> for NumberAnimator {
+impl Animation for NumberAnimator {
+    type Frame = usize;
+
     fn advance_frames(&mut self, frames: usize) {
         for _ in 0..frames {
             self.current = (self.current * 3 + self.target + 3) / 4;
@@ -205,7 +211,9 @@ impl SoundPlayer {
     }
 }
 
-impl Animation<Vec<Sound>> for SoundPlayer {
+impl Animation for SoundPlayer {
+    type Frame = Vec<Sound>;
+
     fn current_frame(&self) -> Vec<Sound> {
         let mut current = self.current.borrow_mut();
         std::mem::take(current.as_mut())
